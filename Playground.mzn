@@ -1,5 +1,6 @@
-% input data
+include "nosets.mzn"; % Support for set variables for all solvers% input data
 include "data.dzn";
+include "alldifferent.mzn";
 
 int: m; % number of couriers
 int: n; % number of items
@@ -23,11 +24,17 @@ constraint forall(i in 1..n) (
 constraint forall(j in 1..m) (
     sum(i in 1..n) (size[i] * courier_item[j,i]) <= max_load[j] % courier load is within its limit
 );
+
+set of int: S = {n+1};
+constraint forall(j in 1..m) (
+    all_different_except([ courier_route[j,i] | i in 2..n],S)
+ );
 /*
-constraint forall(j in 1..m, k in 2..n+1) (
-    courier_route[j,k] != courier_route[j,k-1] % courier route is a permutation of items X
-);*/
-/* TODO aggiungere constraint che faccia passare il corrirere dai posti in cui deve consegnare i pacchi*/
+constraint alldifferent([ courier_route[j,i] | j in 1..m, i in 2..n])::domain;
+*/
+constraint forall(j in 1..m, i in 2..n) (
+    courier_item[j,courier_route[j,i]] = 1 %all packages delivery
+);
 constraint forall(j in 1..m) (
     courier_route[j,1] = n+1 /\ courier_route[j,n+1] = n+1 % courier route starts and ends at origin
 );
@@ -37,7 +44,7 @@ constraint forall(j in 1..m) (
 constraint forall(j in 1..m) (
     courier_distance[j] = sum(k in 2..n+1) (dist[courier_route[j,k-1], courier_route[j,k]]) % compute courier distance
 );
-constraint max_distance <= max(j in 1..m) (courier_distance[j]); % minimize maximum distance traveled
+constraint max_distance <= sum(j in 1..m) (courier_distance[j]); % minimize maximum distance traveled
 
 % objective function
 solve minimize max_distance;
@@ -46,5 +53,6 @@ solve minimize max_distance;
 output [
     "Courier " ++ show(j) ++ " route: " ++ show(courier_route[j,1..n+1]) ++ "\n" ++
     "Courier " ++ show(j) ++ " load: " ++ show(courier_load[j]) ++ "\n" ++
-    "Courier " ++ show(j) ++ " distance: " ++ show(courier_distance[j]) ++ "\n" | j in 1..m
+    "Courier " ++ show(j) ++ " distance: " ++ show(courier_distance[j]) ++ "\n" ++
+    "Courier " ++ show(j) ++ " item: " ++ show(courier_item[j,1..n]) ++ "\n" | j in 1..m
 ];
