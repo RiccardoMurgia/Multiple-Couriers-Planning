@@ -1,5 +1,5 @@
 % input data
-include "data.dzn";
+include "d2.dzn";
 include "globals.mzn";
 
 int: m; % number of couriers

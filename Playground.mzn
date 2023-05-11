@@ -1,5 +1,5 @@
 % input data
-include "data.dzn";
+%include "data.dzn";
 
 int: m; % number of couriers
 int: n; % number of items
@@ -51,6 +51,7 @@ constraint forall(j in 1..m, i in 1..n+1)(
 constraint forall(j in 1..m, i in 2..n)(
 	courier_route[j,i] != courier_route[j,i - 1] \/ courier_route[j,i] = n+1
 );
+
 constraint forall(j in 1..m, i in 2..n)(
 	courier_item[j,courier_route[j,i]] = 1
 );
