@@ -1,6 +1,4 @@
 include "globals.mzn";
-include "inst07.dzn";
-
 int: m; % number of couriers
 int: n; % number of items
 int: min_path; % lower bound
@@ -15,6 +13,7 @@ var int: max_distance; % max distance traveled
 constraint forall(j in 1..m)(
 	courier_route[j,1] = n+1 /\ courier_route[j,n+3-m] = n+1 /\ courier_route[j,2] != n+1
 ); % each courier start from the origin, end at the origin and at time 2 his path must start
+
 
 constraint forall(j in 1..m)(
 	max_load[j] >= sum(i in 1..n)(count(s in courier_route[j,2..n+2-m])(i=s) * size[i])

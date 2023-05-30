@@ -1,7 +1,7 @@
 import minizinc
 from instance import *
-from datetime import timedelta, datetime
-import time
+from datetime import timedelta
+from pathlib import Path
 
 class CpModel:
     def __init__(self, model_file_path:'str')-> 'None':
@@ -14,6 +14,7 @@ class CpModel:
 
     def add_instance(self, instance:'Instance', solver:'str' = 'gecode')->'None':
         _solver = minizinc.Solver.lookup(solver)
+        _solver.load(Path('./gecode_config.msc'))
         self.__instance = minizinc.Instance(_solver, self.__model)
         instance.compute_min_path()
         self.__instance['m'] = instance.m
@@ -31,7 +32,7 @@ class CpModel:
             solution = self.__instance.solve(all_solutions=False, timeout=timedelta(seconds=timeout))
         else:
             solution = self.__instance.solve(all_solutions=False)
-        return (solution.solution, solution.statistics['solveTime'])
+        return (solution.solution, solution.statistics)
     
 
     def get_solution_string(self, solution):

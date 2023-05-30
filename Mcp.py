@@ -55,9 +55,10 @@ def main(solver_name:'str' = 'cp', instances_path:'str'='./instances/', timeout:
         solver.add_instance(instance)
         solution = solver.solve(timeout)
         if not solution[0] is None:
-            print(f'solved instance {instance.name} in {solution[1].microseconds / 1000} milliseconds')
+            print(f'solved instance {instance.name}')
             if verbose:
                 print(solver.get_solution_string(solution[0]))
+                print(f'stats:\n{solution[1]}\n')
         else:
             print(f'solution for instance {instance.name} not found')
 
