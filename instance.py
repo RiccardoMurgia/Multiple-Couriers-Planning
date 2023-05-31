@@ -11,7 +11,7 @@ class Instance:
         self.m = int(lines[0])
         self.n = int(lines[1])
         loads = lines[2].split(' ')
-        self.max_load = [int(l) for l in loads]
+        self.max_load = sorted([int(l) for l in loads])
         sizes = lines[3].split(' ')
         self.size = [int(s) for s in sizes if s != '']
         lines = lines[4:]
