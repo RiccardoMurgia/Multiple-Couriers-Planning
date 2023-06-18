@@ -19,10 +19,15 @@ class CpModel:
         instance.compute_min_path()
         self.__instance['m'] = instance.m
         self.__instance['n'] = instance.n
-        self.__instance['min_path'] = instance.min_path
         self.__instance['max_load'] = instance.max_load
         self.__instance['size'] = instance.size
         self.__instance['dist'] = instance.distances
+        self.__instance['min_path'] = instance.min_path
+        self.__instance['n_array'] = instance.n_array
+        self.__instance['count_array'] = instance.count_array
+        self.__instance['max_path_length'] = instance.max_path_length
+        self.__instance['origin'] = instance.origin
+        self.__instance['number_of_origin_stops'] = instance.number_of_origin_stops
 
     def solve(self, timeout:'int'=300):
         if self.__instance is None:

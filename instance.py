@@ -23,6 +23,12 @@ class Instance:
 
         self.optimal_paths = None
         self.min_path = 0
+        self.max_path_length = self.n-self.m+3
+        self.number_of_origin_stops = int((self.max_path_length * self.m) - self.n)
+        self.origin = int(self.n+1)
+        self.n_array = [i+1 for i in range(self.n + 1)]
+        self.count_array = [1 for _ in range(self.n)] + [self.number_of_origin_stops]
+
     
     def compute_min_path(self) -> 'None':
         n = self.n
