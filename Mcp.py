@@ -11,6 +11,7 @@ parser.add_argument("-t", "--timeout", type=int)
 parser.add_argument("-s", "--solver", type=str)
 parser.add_argument("-i", "--instances", type=str)
 parser.add_argument("-v", "--verbose", type=int)
+parser.add_argument("-jt", "--justTime", type=int)
 
 def get_arguments():
     args = parser.parse_args()
@@ -23,6 +24,8 @@ def get_arguments():
         main_args['solver_name'] = args.solver 
     if not args.verbose is None:
         main_args['verbose'] =  args.verbose == 1
+    if not args.justTime is None:
+        main_args['just_time'] =  args.justTime == 1
     return main_args
 
 
@@ -37,7 +40,7 @@ def load_instances(instances_path:'str')->'list[Instance]':
     
     return instances
 
-def main(solver_name:'str' = 'cp', instances_path:'str'='./instances/', timeout:'int'=300, verbose:'bool'=False):
+def main(solver_name:'str' = 'cp', instances_path:'str'='./instances/', timeout:'int'=300, verbose:'bool'=False, just_time:'bool'=False):
 
     solver = None
 
@@ -50,19 +53,25 @@ def main(solver_name:'str' = 'cp', instances_path:'str'='./instances/', timeout:
     instances = load_instances(instances_path)
     print(f'found {len(instances)} instances')
 
+    solved_instances = 0
+
     for instance in instances:
         print(f'solving instance {instance.name}')
         solver.add_instance(instance)
         solution = solver.solve(timeout)
         if not solution[0] is None:
             print(f'solved instance {instance.name}')
+            solved_instances +=1
             if verbose:
                 print(solver.get_solution_string(solution[0]))
                 print(f'stats:\n{solution[1]}\n')
+            elif just_time:
+                print(f'solving time:  {solution[1]["time"]}\n')
         else:
-            print(f'solution for instance {instance.name} not found')
+            print(f'solution for instance {instance.name} not found\n')
 
     print('all solution runned')
+    print(f'solved {solved_instances}/{len(instances)} instances')
         
 
 if __name__ == '__main__':
