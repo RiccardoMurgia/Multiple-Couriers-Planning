@@ -1,5 +1,4 @@
 include "globals.mzn";
-include "inst21.dzn";
 
 int: m; % number of couriers
 int: n; % number of items
@@ -50,8 +49,9 @@ constraint forall(i in max_steps+1..max_path_length)(
 	all_equal(courier_route[m..1,i])
 );
 
-constraint forall(j in 1..m, i in 1..n)(
-	count_eq(courier_route[j,2..max_path_length-1], i, courier_load[j,i])
+constraint forall(j in 1..m, i in 1..n, k in 1..n)(
+	k != steps[j] \/
+	count_eq(courier_route[j,2..k], i, courier_load[j,i])
 ); % each package must be delivered at some point and a location can be visited only one time
 
 constraint global_cardinality_closed(courier_route[1..m,1..max_path_length], n_array, count_array);
