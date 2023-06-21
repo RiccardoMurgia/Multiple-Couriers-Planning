@@ -18,9 +18,9 @@ def get_arguments():
     main_args = {}
     if not args.timeout is None:
         main_args['timeout'] = args.timeout 
-    if not args.timeout is None:
+    if not args.instances is None:
         main_args['instances_path'] = args.instances 
-    if not args.timeout is None:
+    if not args.solver is None:
         main_args['solver_name'] = args.solver 
     if not args.verbose is None:
         main_args['verbose'] =  args.verbose == 1
