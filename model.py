@@ -16,13 +16,14 @@ class CpModel:
         _solver = minizinc.Solver.lookup(solver)
         _solver.load(Path('./gecode_config.msc'))
         self.__instance = minizinc.Instance(_solver, self.__model)
-        instance.compute_min_path()
+        instance.compute_bounds()
         self.__instance['m'] = instance.m
         self.__instance['n'] = instance.n
         self.__instance['max_load'] = instance.max_load
         self.__instance['size'] = instance.size
         self.__instance['dist'] = instance.distances
         self.__instance['min_path'] = instance.min_path
+        self.__instance['max_path'] = instance.max_path
         self.__instance['n_array'] = instance.n_array
         self.__instance['count_array'] = instance.count_array
         self.__instance['max_path_length'] = instance.max_path_length

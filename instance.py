@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 class Instance:
 
@@ -30,12 +31,39 @@ class Instance:
         self.count_array = [1 for _ in range(self.n)] + [self.number_of_origin_stops]
 
     
-    def compute_min_path(self) -> 'None':
-        n = self.n
-        min_paths = []
-        o = n
+    def compute_bounds(self) -> 'None':
+        o = self.n
+        def compute_path(current_cost, nodes, select, steps):
+            if steps > len(nodes) - 1:
+                next_step, cost = select(nodes)
+                updated_nodes = nodes + [next_step]
+                cost += current_cost
+                return compute_path(cost, updated_nodes, select, steps)
+            return {'p':nodes + [o], 'c': current_cost + self.distances[nodes[-1],o]}
         
-        for i in range(n):
-            min_paths.append(self.distances[o,i] + self.distances[i,o])
+        max_weight = sum(self.max_load[1:])
+        def min_select(nodes):
+            dist = np.copy(self.distances[nodes[-1], :])
+            dist[nodes] = sys.maxsize
+            c = np.min(dist)
+            i, = np.where(dist == c)
+            return i[0], c
 
-        self.min_path = int(max(min_paths))
+        k = 0
+        while sum(self.size[k:]) > max_weight:
+            k +=1
+        
+        self.min_path = int(max([compute_path(self.distances[o,i], [o, i], min_select,k) for i in range(self.n)], key=lambda b: b['c'])['c'])
+
+        k = 0
+        while sum(self.size[self.n-k:]) < self.max_load[-1] and k < self.n:
+            k+=1
+        
+        def max_select(nodes):
+            dist = np.copy(self.distances[nodes[-1], :])
+            dist[nodes] = -1
+            c = np.max(dist)
+            i, = np.where(dist == c)
+            return i[0], c
+
+        self.max_path = int(min([compute_path(self.distances[o,i], [o, i], max_select,k) for i in range(self.n)], key=lambda b: b['c'])['c'])

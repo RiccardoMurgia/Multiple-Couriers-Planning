@@ -8,6 +8,7 @@ array[1..n] of int: size; % size of each item
 array[1..n+1, 1..n+1] of int: dist; % distance matrix
 
 int: min_path; % lower bound
+int: max_path; % lower bound
 array[1..n+1] of int: n_array;
 array[1..n+1] of int: count_array;
 int: max_path_length;
@@ -38,6 +39,7 @@ constraint forall(j in 1..m)(
 	steps[j] = sum(courier_load[j,1..n]) + 1 /\ steps[j] < max_path_length
 );
 
+
 constraint min_steps = min(steps[1..m]);
 constraint max_steps = max(steps[1..m]);
 
@@ -49,9 +51,8 @@ constraint forall(i in max_steps+1..max_path_length)(
 	all_equal(courier_route[m..1,i])
 );
 
-constraint forall(j in 1..m, i in 1..n, k in 1..n)(
-	k != steps[j] \/
-	count_eq(courier_route[j,2..k], i, courier_load[j,i])
+constraint forall(j in 1..m, i in 1..n)(
+	count_eq(courier_route[j,2..max_path_length], i, courier_load[j,i])
 ); % each package must be delivered at some point and a location can be visited only one time
 
 constraint global_cardinality_closed(courier_route[1..m,1..max_path_length], n_array, count_array);
@@ -64,6 +65,7 @@ constraint forall(j in 1..m) (
 constraint max_distance = max(j in 1..m) (courier_distance[j]); % minimize maximum distance traveled
 
 constraint max_distance >= min_path; % do not search for impossible solutions
+constraint max_distance <= max_path;
 
 solve:: restart_luby(1000) minimize max_distance;
 
