@@ -66,7 +66,7 @@ def main(solver_name:'str' = 'cp', instances_path:'str'='./instances/', timeout:
                 print(solver.get_solution_string(solution[0]))
                 print(f'stats:\n{solution[1]}\n')
             elif just_time:
-                print(f'solving time:  {solution[1]["time"]}\n')
+                print(f'init time: {solution[1]["initTime"]}\nsolving time: {solution[1]["solveTime"]}\ntotal time: {solution[1]["initTime"] + solution[1]["solveTime"]}\n')
         else:
             print(f'solution for instance {instance.name} not found\n')
 
