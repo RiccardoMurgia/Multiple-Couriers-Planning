@@ -24,8 +24,6 @@ class CpModel:
         self.__instance['dist'] = instance.distances
         self.__instance['min_path'] = instance.min_path
         self.__instance['max_path'] = instance.max_path
-        self.__instance['n_array'] = instance.n_array
-        self.__instance['count_array'] = instance.count_array
         self.__instance['max_path_length'] = instance.max_path_length
         self.__instance['origin'] = instance.origin
         self.__instance['number_of_origin_stops'] = instance.number_of_origin_stops
