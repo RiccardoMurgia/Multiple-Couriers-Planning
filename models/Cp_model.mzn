@@ -6,6 +6,8 @@ int: n; % number of items
 array[1..m] of int: max_load; % maximum load size for each courier
 array[1..n] of int: size; % size of each item
 array[1..n+1, 1..n+1] of int: dist; % distance matrix
+array[1..n+1] of int: n_array;
+array[1..n+1] of int: count_array;
 
 int: min_path; % lower bound
 int: max_path; % lower bound
@@ -30,8 +32,16 @@ constraint forall(j in 1..m)(
 	sum(courier_load[j,1..n]) < max_path_length
 );
 
+% constraint forall(i in 1..n)(
+% 	count_eq(courier_load[1..m,i],1,1)
+% );
+
 constraint forall(j in 1..m)(
-	all_but_o_before_k(courier_route[j,2..max_path_length], origin, sum(courier_load[j,1..n]) + 1)
+	all_before(courier_route[j,2..max_path_length], origin)
+);
+
+constraint forall(i in 2..max_path_length)(
+	alldifferent_except(courier_route[1..m,i], {origin})
 );
 
 constraint forall(j in 1..m, i in 1..n)(
@@ -42,6 +52,8 @@ constraint forall(j in 1..m) (
   courier_distance[j] = sum(i in 2..max_path_length) (dist[courier_route[j,i-1], courier_route[j,i]])
 ); % compute courier distance
 
+constraint global_cardinality_closed(courier_route[1..m,1..max_path_length], n_array, count_array);
+
 constraint max_distance = max(j in 1..m) (courier_distance[j]); % minimize maximum distance traveled
 
 constraint max_distance >= min_path; % do not search for impossible solutions
@@ -50,11 +62,8 @@ constraint max_distance <= max_path;
 solve:: restart_luby(1000) minimize max_distance;
 
 
-% predicate all_before(array[int] of var int: x, int: o) =
-%     forall(i,j in index_set(x) where x[i] != o /\ x[j] = o) ( i < j );
-
-% predicate all_different_except_origin(array[int] of var int: x, int: o) =
-%     forall(i,j in index_set(x) where i < j) ( x[i] != x[j] \/ x[i] = o );
+predicate all_before(array[int] of var int: x, int: o) =
+    forall(i,j in index_set(x) where x[i] != o /\ x[j] = o) ( i < j );
 
 predicate all_but_o_before_k(array[int] of var int: x, int: o, var int: k) = 
 	forall(i in index_set(x) where x[i] != o) ( i <= k );
