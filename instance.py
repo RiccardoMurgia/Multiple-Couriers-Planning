@@ -4,7 +4,6 @@ import sys
 class Instance:
 
     def __init__(self, file_path:'str') -> None:
-        
         self.name = file_path.split('/')[-1].replace('.dat','')
         file = open(file_path, "r")
         lines = [line.replace('\n','') for line in file]
@@ -29,6 +28,7 @@ class Instance:
         self.origin = int(self.n+1)
         self.n_array = [i+1 for i in range(self.n + 1)]
         self.count_array = [1 for _ in range(self.n)] + [self.number_of_origin_stops]
+        self.compute_bounds()
 
     
     def compute_bounds(self) -> 'None':
@@ -67,3 +67,28 @@ class Instance:
             return i[0], c
 
         self.max_path = int(min([compute_path(self.distances[o,i], [o, i], max_select,k) for i in range(self.n)], key=lambda b: b['c'])['c'])
+
+
+    def save_dzn(self, file_path=None):
+        distaces_list = self.distances
+        distaces_str_arr = [", ".join([str(int(i)) for i in distaces_list[j]]) for j in range(len(distaces_list))]
+        distaces_str = '\n                      | '.join(distaces_str_arr)
+        instance = f'''m = {self.m};
+n = {self.n};
+max_load = {self.max_load};
+size = {self.size};
+dist = [|{distaces_str}|];
+min_path = {self.min_path};
+max_path = {self.max_path};
+max_path_length = {self.max_path_length};
+origin  = {self.origin};
+number_of_origin_stops = {self.number_of_origin_stops};
+n_array = {self.n_array};
+count_array = {self.count_array};
+        '''
+        name = self.name
+        path = "."
+        if not file_path is None:
+            path = file_path
+        file = open(f"{path}/{name}.dzn", "x")
+        file.write(instance)

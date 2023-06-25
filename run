@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import os
 import argparse
-
+import subprocess
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-s", "--solver", type=str)
@@ -23,9 +23,8 @@ def main(solver_name:'str' = 'cp', inst:'str'="07", p:'int'=1):
     instance = 'instances/parsed_instances/'
     if solver_name == 'cp':
         instance += f'cp/inst{inst}.dzn'
-        os.system(f'minizinc --solver Gecode ./models/Cp_model.mzn {instance} -s -p {p} --time-limit 300000 -i')
+        subprocess.run([f'minizinc', '--solver','Gecode', './models/Cp_model.mzn', f'{instance}','-s', '-p',f'{p}','--time-limit', '300000','-i'])
         
-
 if __name__ == '__main__':
 
     args = get_arguments()

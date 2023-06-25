@@ -2,6 +2,7 @@ import minizinc
 from instance import *
 from datetime import timedelta
 from pathlib import Path
+import subprocess
 
 class CpModel:
     def __init__(self, model_file_path:'str')-> 'None':
@@ -16,7 +17,6 @@ class CpModel:
         _solver = minizinc.Solver.lookup(solver)
         _solver.load(Path('./gecode_config.msc'))
         self.__instance = minizinc.Instance(_solver, self.__model)
-        instance.compute_bounds()
         self.__instance['m'] = instance.m
         self.__instance['n'] = instance.n
         self.__instance['max_load'] = instance.max_load
@@ -39,6 +39,30 @@ class CpModel:
         return (solution.solution, solution.statistics)
     
 
+    def get_solution_string(self, solution):
+        return f'''variable assignement:
+courier_route = {solution.courier_route}
+courier_distance = {solution.courier_distance}
+max_distance = {solution.max_distance}     
+        '''
+    
+class TerminalCpModel:
+    def __init__(self, model_file_path:'str')-> 'None':
+        self.__model_path = model_file_path
+        self.model_name = model_file_path.split('/')[-1].replace('.mzn','')
+
+    def add_instance(self, instance:'str', solver:'str' = 'Gecode')->'None':
+        self.__instance = instance
+        self.__solver = solver
+
+    def solve(self, timeout:'int'=300000, processes:'int' = 8):
+        parameters = ['minizinc', '--solver', self.__solver, self.__model_path, self.__instance, '-s', '-p', str(processes), '-i']
+        if timeout > 0:
+            parameters += ['--time-limit', str(timeout)]
+        solution = subprocess.run(parameters, stdout = subprocess.PIPE).stdout.decode('utf-8')
+        if '=====UNKNOWN=====' in solution:
+            return None
+        return solution
     def get_solution_string(self, solution):
         return f'''variable assignement:
 courier_route = {solution.courier_route}

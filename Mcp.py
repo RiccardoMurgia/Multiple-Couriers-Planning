@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-from model import CpModel
+from model import CpModel, TerminalCpModel
 from instance import Instance
 from os import listdir
 from os.path import isfile, join
@@ -12,6 +12,7 @@ parser.add_argument("-s", "--solver", type=str)
 parser.add_argument("-i", "--instances", type=str)
 parser.add_argument("-v", "--verbose", type=int)
 parser.add_argument("-jt", "--justTime", type=int)
+parser.add_argument("-sv", "--save", type=str)
 
 def get_arguments():
     args = parser.parse_args()
@@ -26,6 +27,8 @@ def get_arguments():
         main_args['verbose'] =  args.verbose == 1
     if not args.justTime is None:
         main_args['just_time'] =  args.justTime == 1
+    if not args.save is None:
+        main_args['save'] =  args.save
     return main_args
 
 
@@ -40,7 +43,7 @@ def load_instances(instances_path:'str')->'list[Instance]':
     
     return instances
 
-def main(solver_name:'str' = 'cp', instances_path:'str'='./instances/', timeout:'int'=300, verbose:'bool'=False, just_time:'bool'=False):
+def main__legacy(solver_name:'str' = 'cp', instances_path:'str'='./instances/', timeout:'int'=300, verbose:'bool'=False, just_time:'bool'=False):
 
     solver = None
 
@@ -72,9 +75,51 @@ def main(solver_name:'str' = 'cp', instances_path:'str'='./instances/', timeout:
 
     print('all solution runned')
     print(f'solved {solved_instances}/{len(instances)} instances')
+
+def main(solver_name:'str' = 'cp', instances_path:'str'='instances/parsed_instances', timeout:'int'=300000, verbose:'bool'=False, just_time:'bool'=False):
+    solver = None
+
+    if solver_name == 'cp':
+        solver = TerminalCpModel('./models/Cp_model.mzn')
+        instances_path += '/cp'
+        print(f'loaded model {solver.model_name}')
+    else:
+        print(f'solver {solver_name} not found, please specify a valid solver')
+    
+    instances = sorted([ join(instances_path,f) for f in listdir(instances_path) if isfile(join(instances_path, f))])
+    print(f'found {len(instances)} instances')
+
+    solved_instances = 0
+
+    for instance in instances:
+        print(f'solving instance {instance}')
+        solver.add_instance(instance)
+        solution = solver.solve(timeout)
+        if not solution is None:
+            print(f'solved instance {instance}')
+            solved_instances +=1
+            if verbose:
+                print(solution)
+        else:
+            print(f'solution for instance {instance} not found\n')
+
+    print('all solution runned')
+    print(f'solved {solved_instances}/{len(instances)} instances')
         
+def save_instances(solver_name:'str' = 'cp', instances_load_path:'str'='./instances/', instances_save_path:'str' = './instancecs/parsed/instances/cp'):
+    
+    instances = load_instances(instances_load_path)
+    if solver_name == 'cp':
+        for instance in instances:
+            instance.save_dzn(instances_save_path)
+
+
 
 if __name__ == '__main__':
 
     args = get_arguments()
-    main(**args)
+    if 'save' in args.keys() is not None:
+        save_instances(instances_save_path=args['save'], 
+                       instances_load_path=args['instances_path'] if 'instances_path' in args.keys() else './instances/')
+    else:
+        main(**args)
