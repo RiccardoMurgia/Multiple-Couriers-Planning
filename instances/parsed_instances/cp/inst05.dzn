@@ -6,11 +6,12 @@ dist = [|0, 21, 86, 99
                       | 21, 0, 71, 80
                       | 92, 71, 0, 61
                       | 59, 80, 61, 0|];
-min_path = 160;
+min_path = 252;
 max_path = 254;
 max_path_length = 4;
 origin  = 4;
 number_of_origin_stops = 5;
 n_array = [1, 2, 3, 4];
 count_array = [1, 1, 1, 5];
+min_packs = 1;
         

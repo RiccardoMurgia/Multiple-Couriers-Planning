@@ -18,4 +18,5 @@ origin  = 9;
 number_of_origin_stops = 22;
 n_array = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 count_array = [1, 1, 1, 1, 1, 1, 1, 1, 22];
+min_packs = 1;
         

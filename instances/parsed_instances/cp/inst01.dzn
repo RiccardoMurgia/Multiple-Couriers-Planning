@@ -9,11 +9,12 @@ dist = [|0, 3, 4, 5, 6, 6, 2
                       | 6, 7, 8, 3, 0, 2, 4
                       | 6, 7, 8, 3, 2, 0, 4
                       | 2, 3, 4, 3, 4, 4, 0|];
-min_path = 12;
-max_path = 24;
+min_path = 16;
+max_path = 31;
 max_path_length = 7;
 origin  = 7;
 number_of_origin_stops = 8;
 n_array = [1, 2, 3, 4, 5, 6, 7];
 count_array = [1, 1, 1, 1, 1, 1, 8];
+min_packs = 2;
         
