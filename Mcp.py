@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 from model import CpModel, TerminalCpModel
+from solutions import CpSolution
 from instance import Instance
 from os import listdir
 from os.path import isfile, join
@@ -92,16 +93,16 @@ def main(solver_name:'str' = 'cp', instances_path:'str'='instances/parsed_instan
     solved_instances = 0
 
     for instance in instances:
+        print("=============================================================")
         print(f'solving instance {instance}')
         solver.add_instance(instance)
         solution = solver.solve(timeout)
-        if not solution is None:
+        if solution.is_solved(timeout):
             print(f'solved instance {instance}')
             solved_instances +=1
-            if verbose:
-                print(solution)
         else:
             print(f'solution for instance {instance} not found\n')
+        solution.print(just_time, verbose, timeout)
 
     print('all solution runned')
     print(f'solved {solved_instances}/{len(instances)} instances')

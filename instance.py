@@ -24,11 +24,11 @@ class Instance:
         self.optimal_paths = None
         self.min_path = 0
         self.max_path_length = self.n-self.m+3
+        self.compute_bounds()
         self.number_of_origin_stops = int((self.max_path_length * self.m) - self.n)
         self.origin = int(self.n+1)
         self.n_array = [i+1 for i in range(self.n + 1)]
         self.count_array = [1 for _ in range(self.n)] + [self.number_of_origin_stops]
-        self.compute_bounds()
 
     
     def compute_bounds(self) -> 'None':
@@ -49,16 +49,29 @@ class Instance:
             i, = np.where(dist == c)
             return i[0], c
 
+        ordered_size = sorted(self.size)
+
         k = 0
-        while sum(self.size[k:]) > max_weight:
+        while sum(ordered_size[k:]) > max_weight:
             k +=1
+
+        k +=1
         
         self.min_path = int(max([compute_path(self.distances[o,i], [o, i], min_select,k) for i in range(self.n)], key=lambda b: b['c'])['c'])
 
-        k = 0
-        while sum(self.size[self.n-k:]) < self.max_load[-1] and k < self.n:
+        k = 1
+        while sum(ordered_size[:self.n-k]) > max_weight:
+            k +=1
+        self.min_packs = k
+
+        k = 1
+        while sum(ordered_size[:k]) < self.max_load[-1] and k < self.n:
             k+=1
         
+        self.max_packs = k
+
+        self.max_path_length = min(self.max_packs + 2, self.max_path_length)
+
         def max_select(nodes):
             dist = np.copy(self.distances[nodes[-1], :])
             dist[nodes] = -1
@@ -85,10 +98,11 @@ origin  = {self.origin};
 number_of_origin_stops = {self.number_of_origin_stops};
 n_array = {self.n_array};
 count_array = {self.count_array};
+min_packs = {self.min_packs};
         '''
         name = self.name
         path = "."
         if not file_path is None:
             path = file_path
-        file = open(f"{path}/{name}.dzn", "x")
+        file = open(f"{path}/{name}.dzn", "w")
         file.write(instance)

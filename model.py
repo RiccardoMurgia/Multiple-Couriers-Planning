@@ -2,6 +2,7 @@ import minizinc
 from instance import *
 from datetime import timedelta
 from pathlib import Path
+from solutions import CpSolution
 import subprocess
 
 class CpModel:
@@ -55,17 +56,18 @@ class TerminalCpModel:
         self.__instance = instance
         self.__solver = solver
 
-    def solve(self, timeout:'int'=300000, processes:'int' = 8):
+    def solve(self, timeout:'int'=300000, processes:'int' = 8) -> CpSolution:
         parameters = ['minizinc', '--solver', self.__solver, self.__model_path, self.__instance, '-s', '-p', str(processes), '-i']
         if timeout > 0:
             parameters += ['--time-limit', str(timeout)]
         solution = subprocess.run(parameters, stdout = subprocess.PIPE).stdout.decode('utf-8')
-        if '=====UNKNOWN=====' in solution:
-            return None
-        return solution
+        return CpSolution(solution)
+    
     def get_solution_string(self, solution):
         return f'''variable assignement:
 courier_route = {solution.courier_route}
 courier_distance = {solution.courier_distance}
 max_distance = {solution.max_distance}     
         '''
+    
+
