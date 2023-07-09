@@ -34,7 +34,7 @@ constraint forall(j in 1..m, i in 2..min_packs+1)(
 	courier_route[j,i] != origin
 ); 
 
-constraint at_most_one_per_column(courier_load,n,m);
+% constraint at_most_one_per_column(courier_load,n,m);
 
 constraint forall(j in 1..m)(
 	max_load[j] >= sum(i in 1..n)(courier_load[j,i] * size[i])
@@ -59,9 +59,9 @@ constraint forall(j in 1..m, i in 1..n)(
 		count_eq(courier_route[j,2..max_path_length-1], i, courier_load[j,i])
 ); % each package must be delivered at some point and a location can be visited only one time
 
-constraint forall(j in 1..m)(
-	all_before(courier_route[j,min_packs+2..max_path_length-1], origin, steps[j])
-);
+% constraint forall(j in 1..m)(
+% 	all_before(courier_route[j,min_packs+2..max_path_length-1], origin, steps[j])
+% );
 
 constraint global_cardinality_closed(courier_route, n_array, count_array);
 constraint forall(j in 1..m) (

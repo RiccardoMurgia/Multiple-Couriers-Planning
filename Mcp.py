@@ -14,6 +14,7 @@ parser.add_argument("-i", "--instances", type=str)
 parser.add_argument("-v", "--verbose", type=int)
 parser.add_argument("-jt", "--justTime", type=int)
 parser.add_argument("-sv", "--save", type=str)
+parser.add_argument("-p", "--processes", type=int)
 
 def get_arguments():
     args = parser.parse_args()
@@ -30,6 +31,8 @@ def get_arguments():
         main_args['just_time'] =  args.justTime == 1
     if not args.save is None:
         main_args['save'] =  args.save
+    if not args.processes is None:
+        main_args['p'] = args.processes 
     return main_args
 
 
@@ -77,13 +80,13 @@ def main__legacy(solver_name:'str' = 'cp', instances_path:'str'='./instances/', 
     print('all solution runned')
     print(f'solved {solved_instances}/{len(instances)} instances')
 
-def main(solver_name:'str' = 'cp', instances_path:'str'='instances/parsed_instances', timeout:'int'=300000, verbose:'bool'=False, just_time:'bool'=False):
+def main(solver_name:'str' = 'cp', instances_path:'str'='instances/parsed_instances', timeout:'int'=300000, verbose:'bool'=False, just_time:'bool'=False, p:'int'=1):
     solver = None
 
     if solver_name == 'cp':
-        solver = TerminalCpModel('./models/Cp_model.mzn')
+        solver = TerminalCpModel(['./models/Cp_model.mzn', './models/Cp_model_one_hot.mzn'])
         instances_path += '/cp'
-        print(f'loaded model {solver.model_name}')
+        print(f'loaded models {solver.model_names}')
     else:
         print(f'solver {solver_name} not found, please specify a valid solver')
     
@@ -96,7 +99,7 @@ def main(solver_name:'str' = 'cp', instances_path:'str'='instances/parsed_instan
         print("=============================================================")
         print(f'solving instance {instance}')
         solver.add_instance(instance)
-        solution = solver.solve(timeout)
+        solution = solver.solve(timeout, processes=p)
         if solution.is_solved(timeout):
             print(f'solved instance {instance}')
             solved_instances +=1
