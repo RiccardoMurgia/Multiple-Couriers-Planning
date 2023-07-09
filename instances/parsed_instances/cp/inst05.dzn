@@ -6,7 +6,7 @@ dist = [|0, 21, 86, 99
                       | 21, 0, 71, 80
                       | 92, 71, 0, 61
                       | 59, 80, 61, 0|];
-min_path = 252;
+min_path = 212;
 max_path = 254;
 max_path_length = 4;
 origin  = 4;

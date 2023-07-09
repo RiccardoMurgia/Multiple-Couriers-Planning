@@ -51,11 +51,9 @@ class Instance:
 
         ordered_size = sorted(self.size)
 
-        k = 0
+        k = 1
         while sum(ordered_size[k:]) > max_weight:
             k +=1
-
-        k +=1
         
         self.min_path = int(max([compute_path(self.distances[o,i], [o, i], min_select,k) for i in range(self.n)], key=lambda b: b['c'])['c'])
 
@@ -80,6 +78,11 @@ class Instance:
             return i[0], c
 
         self.max_path = int(min([compute_path(self.distances[o,i], [o, i], max_select,k) for i in range(self.n)], key=lambda b: b['c'])['c'])
+
+        # enc = bin(self.n)[2:]
+        # self.encoding = len(enc)
+        # self.origin_encoding = [str(i + 1) for i in range(self.encoding) if enc[i] == '1']
+        # self.pow = [str(2 ** i) for i in range(len(enc))]
 
 
     def save_dzn(self, file_path=None):

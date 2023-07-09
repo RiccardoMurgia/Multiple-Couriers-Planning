@@ -1,3 +1,5 @@
+LAMBDA = 0.1
+
 class CpSolution:
     def __init__(self, solution_str:'str') -> None:
         
@@ -23,7 +25,7 @@ class CpSolution:
         #self.parse_flat_statistics(second_split[0])
     
     def is_solved(self, timeout):
-        return self.solved and self.satisfiable and abs(self.total_time - timeout) > 0.01
+        return self.solved and self.satisfiable and abs(self.total_time - timeout) > LAMBDA
 
     def parse_statistics(self, stat_str:'str'):
         all_stat = stat_str.split('%%%mzn-stat: ')
@@ -41,13 +43,28 @@ class CpSolution:
             parsed_solution = solution.replace('\n','')
             if parsed_solution != '':
                 sol = {}
-                sol['courier_route'] = parsed_solution.split('courier_route = ')[1].split('courier_distance')[0]
-                sol['courier_distance'] = parsed_solution.split('courier_distance = ')[1].split('max_distance')[0]
-                sol['max_distance'] = parsed_solution.split('max_distance = ')[1]
+                sol_arr = parsed_solution.split(';')
+                for el in sol_arr:
+                    c = el.replace(" ","")
+                    components = c.split("=")
+                    if components[0] != '':
+                        sol[components[0]] = components[1]
                 self.solutions.append(sol)
         self.all_solutions_str = all_solutions
         self.last_solution = self.solutions[-1]
         self.n_solutions = len(self.solutions)
+
+    def parserfn(sol):
+        sol = sol.replace("----------","").replace("==========","").replace("\n","")
+        sol_arr = sol.split(';')
+        elements = {}
+        for el in sol_arr:
+            c = el.replace(" ","")
+            components = c.split("=")
+            if components[0] != '':
+                elements[components[0]] = components[1]
+
+        return elements
 
     def print(self, jt:'bool', v:'bool', timeout:'int' = 300000):
         if not self.solved:
@@ -56,7 +73,7 @@ class CpSolution:
         if not self.satisfiable:
             print("instance unsatisfiable")
             return
-        if abs(self.total_time - timeout) < 0.01:
+        if abs(self.total_time - timeout) < LAMBDA:
             print("optimal solution not found")
         
         if v:
