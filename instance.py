@@ -44,7 +44,7 @@ class Instance:
         max_weight = sum(self.max_load[1:])
         def min_select(nodes):
             dist = np.copy(self.distances[nodes[-1], :])
-            dist[nodes] = sys.maxsize
+            dist[nodes] = np.max(dist) + 1
             c = np.min(dist)
             i, = np.where(dist == c)
             return i[0], c
