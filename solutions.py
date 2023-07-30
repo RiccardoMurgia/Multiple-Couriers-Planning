@@ -2,26 +2,36 @@ LAMBDA = 0.1
 
 class CpSolution:
     def __init__(self, solution_str:'str') -> None:
-        
-        self.solved = True
-        self.satisfiable = True
-        if '=====UNKNOWN=====' in solution_str:
-            self.solved = False
-            return
-        if '=====UNSATISFIABLE=====' in solution_str:
-            self.satisfiable = False
-            return
-        
+        try:
+            self.solved = True
+            self.satisfiable = True
+            if '=====UNKNOWN=====' in solution_str:
+                self.solved = False
+                return
+            if '=====UNSATISFIABLE=====' in solution_str:
+                self.satisfiable = False
+                return
+            
 
-        if '==========' in solution_str:
-            first_split = solution_str.split('==========')
-        else:
-            first_split = solution_str.split('----------\n%%%mzn-stat')
-        total_statistics_string = first_split[1]
-        second_split = first_split[0].split('%%%mzn-stat-end')
-        all_solutions_string = second_split[1]
-        self.parse_statistics(total_statistics_string)
-        self.parse_solutions(all_solutions_string)
+            if '==========' in solution_str:
+                first_split = solution_str.split('==========')
+            else:
+                first_split = solution_str.split('----------\n%%%mzn-stat')
+            total_statistics_string = first_split[1]
+            second_split = first_split[0].split('%%%mzn-stat-end')
+            all_solutions_string = second_split[1]
+            self.parse_statistics(total_statistics_string)
+            self.parse_solutions(all_solutions_string)
+        except:
+            self.solved = False
+            self.init_time = 0
+            self.solve_time = 0
+            self.total_time = 0
+            self.all_statistics = []
+            self.solutions = None
+            self.last_solution = None
+
+            print('error')
         #self.parse_flat_statistics(second_split[0])
     
     def is_solved(self, timeout):

@@ -1,5 +1,4 @@
 include "globals.mzn";
-%include "../instances/parsed_instances/cp/inst00.dzn";
 int: m; % number of couriers
 int: n; % number of items
 
@@ -59,9 +58,9 @@ constraint forall(j in 1..m, i in 1..n)(
 		count_eq(courier_route[j,2..max_path_length-1], i, courier_load[j,i])
 ); % each package must be delivered at some point and a location can be visited only one time
 
-% constraint forall(j in 1..m)(
-% 	all_before(courier_route[j,min_packs+2..max_path_length-1], origin, steps[j])
-% );
+constraint forall(j in 1..m)(
+	all_before(courier_route[j,min_packs+2..max_path_length-1], origin, steps[j])
+);
 
 constraint global_cardinality_closed(courier_route, n_array, count_array);
 constraint forall(j in 1..m) (
@@ -83,3 +82,4 @@ predicate at_most_one_per_column(array[int,int] of var 0..1:x, int: rows, int:co
 	forall(i in 1..rows)(
 		count(x[1..columns, i],1,1)
 	);
+

@@ -39,7 +39,7 @@ class Instance:
                 updated_nodes = nodes + [next_step]
                 cost += current_cost
                 return compute_path(cost, updated_nodes, select, steps)
-            return {'p':nodes + [o], 'c': current_cost + self.distances[nodes[-1],o]}
+            return {'p':nodes, 'c': current_cost}
         
         max_weight = sum(self.max_load[1:])
         def min_select(nodes):
@@ -52,10 +52,15 @@ class Instance:
         ordered_size = sorted(self.size)
 
         k = 1
-        while sum(ordered_size[k:]) > max_weight:
+        while sum(ordered_size[:self.n-k]) > max_weight:
             k +=1
-        
-        self.min_path = int(max([compute_path(self.distances[o,i], [o, i], min_select,k) for i in range(self.n)], key=lambda b: b['c'])['c'])
+        if k == 1:
+            self.min_path = int(np.max(
+                [ self.distances[o, i] + self.distances[i, o] for i in range(self.n)]
+            ))
+        else:
+            min_origin = int(min([self.distances[i,o] for i in range(self.n)]))
+            self.min_path = int(max([compute_path(self.distances[o,i], [o, i], min_select,k)['c'] + min_origin for i in range(self.n)]))
 
         k = 1
         while sum(ordered_size[:self.n-k]) > max_weight:
@@ -77,12 +82,8 @@ class Instance:
             i, = np.where(dist == c)
             return i[0], c
 
-        self.max_path = int(min([compute_path(self.distances[o,i], [o, i], max_select,k) for i in range(self.n)], key=lambda b: b['c'])['c'])
-
-        # enc = bin(self.n)[2:]
-        # self.encoding = len(enc)
-        # self.origin_encoding = [str(i + 1) for i in range(self.encoding) if enc[i] == '1']
-        # self.pow = [str(2 ** i) for i in range(len(enc))]
+        maxes = [compute_path(self.distances[o,i], [o, i], max_select,k) for i in range(self.n)]
+        self.max_path = int(np.max([m['c'] + self.distances[m['p'][-1],o] for m in maxes]))
 
 
     def save_dzn(self, file_path=None):

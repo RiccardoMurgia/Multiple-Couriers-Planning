@@ -26,6 +26,7 @@ def main(solver_name:'str' = 'cp', inst:'str'="07", p:'int'=1):
         subprocess.run([f'minizinc', '--solver','Gecode', './models/Cp_model.mzn', f'{instance}','-s', '-p',f'{p}','--time-limit', '300000','-i'])
         
 if __name__ == '__main__':
-
     args = get_arguments()
-    main(**args) 
+    main(**args)
+
+
