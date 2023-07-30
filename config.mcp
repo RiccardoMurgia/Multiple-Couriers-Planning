@@ -1,7 +1,7 @@
 {
 	"instances_path":"./instances/",
 	"cp":{
-		"solvers":["gecode","chuffed","or-tools", "coinbc"],
+		"solvers":["gecode","or-tools"],
 		"timeout":300000,
 		"processes":8
 	},

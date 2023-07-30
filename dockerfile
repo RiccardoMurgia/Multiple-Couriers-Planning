@@ -54,10 +54,13 @@ COPY --from=BUILDER /ortools/ /usr/local/
 
 RUN apt-get update
 RUN apt-get install python3-pip -y
+RUN mkdir .cache
+RUN mkdir .cache/cp
 
 COPY . .
 
-RUN pip install -r requirements.txt
+
+RUN pip install -r /requirements.txt
 
 
-CMD ["./Mcp.py", "-c", "./config.mcp"]
+CMD ["python3", "-u", "./Mcp.py", "-c", "./config.mcp"]
