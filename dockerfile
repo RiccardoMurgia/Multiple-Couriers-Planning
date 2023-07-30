@@ -7,10 +7,7 @@ ARG ARCHIVE="${ORT_DIR}.tar.gz"
 
 # Install temporary dependencies
 RUN apt-get update
-RUN apt-get install wget software-properties-common -y
-RUN add-apt-repository ppa:deadsnakes/ppa -y
-RUN apt-get update
-RUN apt-get install python3-pip -y
+RUN apt-get install wget -y
 
 # Download OR-Tools Release
 RUN echo "Yass $VERSION"
