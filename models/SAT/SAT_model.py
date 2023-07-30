@@ -6,6 +6,7 @@ class MySatModel:
 
     def __init__(self):
         self.my_solver = Solver()
+        self.my_optimizer = Optimize()
 
     @staticmethod
     def __get_number_of_bit(number: int) -> int:
@@ -92,47 +93,47 @@ class MySatModel:
     def __exactly_one(bool_vars: list):
         return MySatModel.__at_most_one(bool_vars) + [MySatModel.__at_least_one(bool_vars)]
 
-    def bool_encode(self, numbers: list, size: int, binary_num_length: int, name: str):                 #numbers size,cap
+    def bool_encode(self, numbers: list, size: int, binary_num_length: int, name: str):  # numbers size,cap
         bool_num = [[Bool(f"{name}_{n}_{b}") for n in range(size)] for b in range(binary_num_length)]
 
         for i in range(size):
             binary_num = MySatModel.__binary_encode(numbers[i], binary_num_length)
             for b in range(binary_num_length):
-                if binary_num[b] == 1:
+                if binary_num[b] == '1':
                     self.my_solver.add(bool_num[i][b])
                 else:
                     self.my_solver.add(Not(bool_num[i][b]))
         return bool_num
 
-    def courier_routing_sat(self, M, N, cap, size,  D, max_path, number_of_origin_stops, min_packs):
-        courier_route = [[[Bool(f"P_{m}_{k}_{n}") for m in range(1, M)] for k in range(1, max_path)] for n in range(1, N + 1)]
-
-        # Solver instance
-
-        #Your code here
+    def courier_routing_sat(self, M, N, cap, size, D, max_path, number_of_origin_stops, min_packs, origin: int):
+        courier_route = [[[Bool(f"P_{m}_{k}_{n}") for m in range(M)] for k in range(max_path)] for n in range(origin)]
 
         # essere inizio e fine in origine
-        start = And(courier_route[:,0,N])
-        end = And(courier_route[:,max_path-1,N])
+        start = And(courier_route[:, 0, origin])
+        end = And(courier_route[:, max_path - 1, N])
         self.my_solver.add(And(start, end))
-        self.my_solver.add(Not(courier_route[:,1:min_packs,N]))
+        self.my_solver.add(Not(courier_route[:, 1:min_packs, N]))
 
         # ogni corriere almeno un pacco
-        self.my_solver.add(MySatModel.__at_least_one(courier_route[:, : max_path - 1, :]))
+        self.my_solver.add(MySatModel.__at_least_one(courier_route[:, : max_path - 1, :]))  # todo at_least_n_pack
 
         # ogni pacco deve essere consegnato, ongi zona va passata un volta sola
         for i in range(N - 1):
-            self.my_solver.add(MySatModel.__exactly_one(courier_route[:, 1:max_path, i]))
+            self.my_solver.add(MySatModel.__exactly_one(courier_route[:, 1: max_path - 2, i]))
 
         # rimanere all'origine una volta che ci arrivi
         for j in range(M):
-            for i in range(1,max_path-1):
-                not_origin = Not(courier_route[j][i][N])
-                origin = And(courier_route[j, i+1:max_path - 1, N])
-                self.my_solver.add(Or(not_origin, origin))
+            for i in range(max_path - 2):
+                self.my_solver.add(Implies(courier_route[j][i][N], And(courier_route[j][i + 1][N],
+                                                                       courier_route[j][i][origin])))
+
+                # self.my_solver.add(Implies(courier_route[j][i][N], And(courier_route[j, i + 1: max_path - 1, N])))
+                # Implies sostituiisce questo:
+                # not_origin = Not(courier_route[j][i][N])
+                # origin = And(courier_route[j, i + 1 : max_path - 1, N])
+                # self.my_solver.add(Or(not_origin, origin))  
 
         # controllare la max load
-
         max_num = max(cap)
         binary_cap_length = MySatModel.__get_number_of_bit(max_num)
 
@@ -143,7 +144,7 @@ class MySatModel:
         for j in range(M):
             indexes = []
             for i in range(N):
-                if MySatModel.__at_least_one(courier_route[j, : max_path-1, i]):                          # if has pack
+                if MySatModel.__at_least_one(courier_route[j, : max_path - 2, i]):  # if it has pack
                     indexes.append(i)
 
             # Sum bitwise
@@ -154,7 +155,7 @@ class MySatModel:
                     bool_sum[j][b] = Xor(Xor(bool_size[k][b], bool_sum[j][b]), carry)
                     carry = And(bool_size[k][b], tmp_value)
 
-            #A >= B  =>  (A AND (NOT B)) OR (A nxor B)
+            # A >= B  =>  (A AND (NOT B)) OR (A nxor B)
             comparison = False
             for b in range(binary_cap_length, 0, -1):
                 tmp_and = True
@@ -167,24 +168,39 @@ class MySatModel:
 
             self.my_solver.add(comparison)
 
-
-
-
         self.my_solver.add(bool_sum <= bool_cap)
 
-        # minimizzare distanza di corriere massimo
+        # minimizzare distanza massima peercorsa dei corrieri
+        binary_D = [[Bool(f"D_{k}_{b}") for k in range(N)] for b in range(self.__get_number_of_bit(max(D)))]
 
-        #Your code here
+        # Constraints to represent binary encoding for distances
+        for k in range(N):
+            binary_num = self.__binary_encode(D[k], len(binary_D))
+            for b in range(len(binary_D)):
+                if binary_num[b] == "1":
+                    self.my_solver.add(binary_D[b][k])
+                else:
+                    self.my_solver.add(Not(binary_D[b][k]))
+
+        # Define binary variables for courier distances
+        courier_distance_vars = [[Bool(f"courier_distance_{j}_{b}") for j in range(M)] for b in range(len(binary_D))]
+
+        # Constraints to calculate the binary distance for each courier
+        for j in range(M):
+            for b in range(len(binary_D)):
+                self.my_solver.add(courier_distance_vars[b][j] ==
+                                   Sum([If(courier_route[j][i][k], binary_D[b][k], False)
+                                        for i in range(max_path) for k in range(N)]))
+
+        # Minimize the maximum distance
+        max_distance = courier_distance_vars[-1][0]  # Most significant bit represents the maximum distance
+        self.my_optimizer.minimize(max_distance)
 
         if self.my_solver.check() == sat:
             return self.my_solver.model()
         else:
             print("Failed to solve")
-
-        return
-
+            return None
 
 
 myMode = MySatModel()
-
-
