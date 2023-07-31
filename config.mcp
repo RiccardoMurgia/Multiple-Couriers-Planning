@@ -1,0 +1,10 @@
+{
+	"instances_path":"./instances/",
+	"cp":{
+		"solvers":["gecode","or-tools"],
+		"timeout":300000,
+		"processes":8
+	},
+	"just_time":true,
+	"verbose":false
+}
