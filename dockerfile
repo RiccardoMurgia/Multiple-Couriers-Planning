@@ -7,10 +7,7 @@ ARG ARCHIVE="${ORT_DIR}.tar.gz"
 
 # Install temporary dependencies
 RUN apt-get update
-RUN apt-get install wget software-properties-common -y
-RUN add-apt-repository ppa:deadsnakes/ppa -y
-RUN apt-get update
-RUN apt-get install python3-pip -y
+RUN apt-get install wget -y
 
 # Download OR-Tools Release
 RUN echo "Yass $VERSION"
@@ -57,10 +54,13 @@ COPY --from=BUILDER /ortools/ /usr/local/
 
 RUN apt-get update
 RUN apt-get install python3-pip -y
+RUN mkdir .cache
+RUN mkdir .cache/cp
 
 COPY . .
 
-RUN pip install -r requirements.txt
+
+RUN pip install -r /requirements.txt
 
 
-CMD ["./Mcp.py", "-c", "./config.mcp"]
+CMD ["python3", "-u", "./Mcp.py", "-c", "./config.mcp"]
