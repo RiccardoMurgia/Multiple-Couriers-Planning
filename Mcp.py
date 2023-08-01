@@ -1,6 +1,6 @@
 #!/usr/bin/python3
-from model import CpModel
-from solutions import CpSolution
+from models.Cp.model import CpModel
+from models.Cp.solutions import CpSolution
 from instance import Instance
 from os import listdir
 from os.path import isfile, join
@@ -29,7 +29,7 @@ def load_instances(instances_path:'str')->'list[Instance]':
     return instances
 
 def solve_cp(config:'dict', instances_path:'str', just_time:'bool', verbose:'bool'):
-    solver = CpModel('./models/Cp_model.mzn')
+    solver = CpModel('./models/Cp/Cp_model.mzn')
     print(f'loaded models {solver.model_name}')
     instances = load_instances(instances_path)
     for instance in instances:
