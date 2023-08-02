@@ -9,12 +9,14 @@ class D2B:
             self.__representation = binary
             self.name = name
             self.__operations = pre_operations
+            self.is_bool = self.binary_length == 1
             return
 
-        self.__operations = pre_operationspre_operations
+        self.__operations = pre_operations
         self.binary_length = self.__get_length(decimal_number)
         self.__representation = self.__convert(decimal_number, self.binary_length, name)        
         self.name = name
+        self.is_bool = self.binary_length == 1
        
 
     def __get_length(self, number:'int') -> int:
@@ -39,10 +41,9 @@ class D2B:
         return self.__representation
 
 
-    def add(self, s:'Solver') -> None:
-        for o in self.__operations:
-            s.add(o)
-       
+    def get_constraints(self) -> 'list':
+        return self.__operations 
+
     def __str__(self):
         return self.name + " " + str(self.__representation)
 
@@ -83,37 +84,72 @@ class D2B:
         new_num.append(final_num)
         return D2B(binary=list(reversed(new_num)), name=f"{self.name} + {other.name}", pre_operations=operations)
 
-    def __mult__(self, other):
-        if type(other) != type(Bool('')):
-            raise("Error: implelemented multiplication only between D2B and booleans")
+    def __mul__(self, other):
+        
+        not_boolean, boolean = self.__get_operands(self, other)
         new_num = []
         operations = []
-        for n in self.All():
-            new_n = Bool(f'mult_{self.name}_{n}'}
-            operations.append(iff(And(n,other),new_n))
+        for n in not_boolean.all():
+            new_n = Bool(f'mult_{self.name}_{n}_{other}')
+            operations.append(iff(And(n,boolean),new_n))
             new_num.append(new_n)
-        return D2B(binary=new_num, name=f'{self.name} * {Other}', pre_operations=operations)
- 
+        return D2B(binary=new_num, name=f'{self.name} * {other}', pre_operations=operations)
+    
+    def __get_operands(self, first, second):
+        if type(second) == type(Bool('')):
+            return first, second
+        if type(first) == type(Bool('')):
+            return second, first
+        if type(first) == type(D2B(0)) and type(second) == type(D2B(0)):
+            if second.is_bool:
+                return first, second.get(0)
+            if first.is_bool:
+                return second, first.get(0)
+        if not (self.is_bool or other.is_bool):
+            raise("Error: implelemented multiplication only between D2B and booleans")
+       
+    __rmul__ = __mul__
+
+
+
+
 def iff(left, right):
     return Or(
         And(left, right), 
         And(Not(left),Not(right))
     )
 
-s = Solver()
 
-seven = D2B(7, "seven")
-three = D2B(3, "three")
+def usage():
+    s = Solver()
 
-seven.add(s)
-three.add(s)
-b = Bool('true_bool')
-s.add(b)
-ten = seven * b
-ten.add(s)
-print(s.check())
-if s.check() == sat:
-    m = s.model()
-    print("three", [m.evaluate(v) for v in three.all()])
-    print("seven", [m.evaluate(v) for v in seven.all()])
-    print("ten", [m.evaluate(v) for v in ten.all()])
+    seven = D2B(7, "seven")
+    three = D2B(3, "three")
+    ten = seven + three
+
+    one = D2B(1,"one")
+    res = seven * one
+
+    b = Bool('zero')
+    res2 = seven * b
+
+    s.add(Not(b))
+    s.add(seven.get_constraints())
+    s.add(three.get_constraints())
+    s.add(ten.get_constraints())
+    s.add(one.get_constraints())
+    s.add(res.get_constraints())
+    s.add(res2.get_constraints())
+
+    print(s.check())
+    if s.check() == sat:
+        m = s.model()
+        print("three", [m.evaluate(v) for v in three.all()])
+        print("seven", [m.evaluate(v) for v in seven.all()])
+        print("res", [m.evaluate(v) for v in res.all()])
+        print("res2", [m.evaluate(v) for v in res2.all()])
+        print("ten", [m.evaluate(v) for v in ten.all()])
+        print("one", [m.evaluate(v) for v in one.all()])
+
+
+usage()
