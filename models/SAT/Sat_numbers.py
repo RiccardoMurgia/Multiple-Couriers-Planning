@@ -82,6 +82,17 @@ class D2B:
         operations.append(iff(carry,final_num))
         new_num.append(final_num)
         return D2B(binary=list(reversed(new_num)), name=f"{self.name} + {other.name}", pre_operations=operations)
+
+    def __mult__(self, other):
+        if type(other) != type(Bool('')):
+            raise("Error: implelemented multiplication only between D2B and booleans")
+        new_num = []
+        operations = []
+        for n in self.All():
+            new_n = Bool(f'mult_{self.name}_{n}'}
+            operations.append(iff(And(n,other),new_n))
+            new_num.append(new_n)
+        return D2B(binary=new_num, name=f'{self.name} * {Other}', pre_operations=operations)
  
 def iff(left, right):
     return Or(
@@ -96,7 +107,9 @@ three = D2B(3, "three")
 
 seven.add(s)
 three.add(s)
-ten = seven + three
+b = Bool('true_bool')
+s.add(b)
+ten = seven * b
 ten.add(s)
 print(s.check())
 if s.check() == sat:
