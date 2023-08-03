@@ -232,16 +232,16 @@ class Sat_model:
                 for k in range(instance.n):
                     s.add(self.__exactly_one(courier_route[:,:,k].flatten().tolist()))
                 s.add(self.__exactly_one(courier_route[j,i,:].flatten().tolist()))
-            s.add(self.__at_least_one(courier_route[j,:,1:instance.n].flatten().tolist()))
+            
+            for i in range(1,instance.min_packs + 1):
+                s.add(Not(courier_route[j,i,instance.n]))
 
 
-
+        
         if s.check() == sat:
+            m = s.model()
             for j in range(instance.m):
-                print("_______________________")
-                for i in range(instance.max_path_length):
-                    m = s.model()
-                    print(i,[k+1 for k in range(instance.n+1) if m.evaluate(courier_route[j,i,k])])
+                print(j,[k+1 for k in range(instance.n+1) for i in range(instance.max_path_length) if m.evaluate(courier_route[j,i,k])])
         else:
             print("nope")
 #myMode = MySatModel()

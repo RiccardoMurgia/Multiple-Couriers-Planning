@@ -43,6 +43,46 @@ class D2B:
 
     def get_constraints(self) -> 'list':
         return self.__operations 
+    
+    def add_greater(self, other):
+        min_length = min(self.binary_length, other.binary_length)
+        max_length = max(self.binary_length, other.binary_length)
+
+        constraints = [Or([And(self.get(i), Not(other.get(i))) for i in range(min_length)])]
+        if min_length == self.binary_length:
+            constraints += [Not(other.get(i)) for i in range(min_length, max_length)]
+        return constraints
+
+    def add_less(self, other):
+        min_length = min(self.binary_length, other.binary_length)
+        max_length = max(self.binary_length, other.binary_length)
+        
+        constraints = [Or([And(Not(self.get(i), other.get(i))) for i in range(self.binary_length)])]
+        if max_length == self.binary_length:
+            constraints += [Not(self.get(i)) for i in range(min_length, max_length)]
+        return constraints
+    
+    def add_equal(self, other):
+        min_length = min(self.binary_length, other.binary_length)
+        max_length = max(self.binary_length, other.binary_length)
+        
+        constraints =  [iff(self.get(i), other.get(i)) for i in range(min_length)]
+        return constraints
+        if min_length == max_length:
+            return constraints
+        
+        longer = self
+        if self.binary_length == min_length:
+            longer = other
+
+        constraints += [Not(longer.get(i)) for i in range(min_length, max_length)]
+        return constraints
+
+    def add_geq(self, other):
+        return [Or(And(self.add_greater(self,other)), And(self.add_equal(self,other)))]
+    
+    def add_leq(self, other):
+        return [Or(And(self.add_less(self,other)), And(self.add_equal(self,other)))]
 
     def __str__(self):
         return self.name + " " + str(self.__representation)
@@ -55,11 +95,11 @@ class D2B:
         max_length = max(self.binary_length, other.binary_length)
         new_num = []
         for i in range(1, min_length + 1):
-            current_num = Bool(f'sum_{i}') 
+            current_num = Bool(f'sum_{i}_{self.name}_{other.name}') 
             operations.append(iff(Xor(self.get(self.binary_length - i), other.get(other.binary_length - i)),current_num))
-            final_num = Bool(f'sum_with_carry{i}')
+            final_num = Bool(f'sum_with_carry_{i}_{self.name}_{other.name}')
             operations.append(iff(Xor(current_num, carry), final_num))
-            new_carry = Bool(f'carry_{i}')
+            new_carry = Bool(f'carry_{i}_{self.name}_{other.name}')
             operations.append(iff(Or(And(current_num, carry), And(self.get(self.binary_length - i), other.get(other.binary_length - i))),new_carry))
             carry = new_carry
             new_num.append(final_num)
@@ -71,15 +111,15 @@ class D2B:
                 max_len_num = other
             
             for i in range(min_length + 1, max_length + 1):
-                current_num = Bool(f'sum_{i}')
+                current_num = Bool(f'sum_{i}_{self.name}_{other.name}')
                 operations.append(iff(Xor(max_len_num.get(max_len_num.binary_length - i), carry), current_num))
 
-                new_carry = Bool(f'carry_{i}')
+                new_carry = Bool(f'carry_{i}_{self.name}_{other.name}')
                 operations.append(iff(And(max_len_num.get(max_len_num.binary_length - i), carry),new_carry)) 
                 carry = new_carry
                 new_num.append(current_num)
         
-        final_num = Bool(f'sum_{max_length + 1}')
+        final_num = Bool(f'sum_{max_length + 1}_{self.name}_{other.name}')
         operations.append(iff(carry,final_num))
         new_num.append(final_num)
         return D2B(binary=list(reversed(new_num)), name=f"{self.name} + {other.name}", pre_operations=operations)
@@ -125,6 +165,7 @@ def usage():
 
     seven = D2B(7, "seven")
     three = D2B(3, "three")
+    six = D2B(6,"six")
     ten = seven + three
 
     one = D2B(1,"one")
@@ -141,6 +182,11 @@ def usage():
     s.add(res.get_constraints())
     s.add(res2.get_constraints())
 
+    s.add(seven.add_greater(six))
+    s.add(six.add_less(seven))
+    _six = D2B(2, "2") + D2B(4, "4")
+    s.add(_six.get_constraints())
+    s.add(six.add_equal(D2B(6,"6")))
     print(s.check())
     if s.check() == sat:
         m = s.model()
@@ -150,6 +196,7 @@ def usage():
         print("res2", [m.evaluate(v) for v in res2.all()])
         print("ten", [m.evaluate(v) for v in ten.all()])
         print("one", [m.evaluate(v) for v in one.all()])
-
+        print("six", [m.evaluate(v) for v in six.all()])
+        print("_six", [m.evaluate(v) for v in _six.all()])
 
 usage()
