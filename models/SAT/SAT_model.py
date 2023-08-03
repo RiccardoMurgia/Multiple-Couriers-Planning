@@ -1,6 +1,11 @@
+import sys, os
+
+sys.path.append(os.path.abspath('.'))
+
 from z3 import *
 from itertools import combinations
-
+from instance import *
+import numpy as np
 
 class MySatModel:
 
@@ -202,5 +207,43 @@ class MySatModel:
             print("Failed to solve")
             return None
 
+class Sat_model:
+    def __at_least_one(self, bool_vars: list):
+        return Or(bool_vars)
 
-myMode = MySatModel()
+    def __at_most_one(self, bool_vars: list):
+        return [Not(And(pair[0], pair[1])) for pair in combinations(bool_vars, 2)]
+
+    def __exactly_one(self, bool_vars: list):
+        return self.__at_most_one(bool_vars) + [self.__at_least_one(bool_vars)]
+
+    def solve(self, instance:'Instance'):
+        s = Solver()
+        courier_route = np.empty(shape=(instance.m, instance.max_path_length, instance.n+1),dtype=object)
+        for j in range(instance.m):
+            for i in range(instance.max_path_length):
+                for k in range(instance.n+1):
+                    courier_route[j,i,k] = Bool(f'courier_{j}_moment_{i}_pack_{k}')
+
+        for j in range(instance.m):
+            s.add(courier_route[j,0,instance.n])
+            s.add(courier_route[j,instance.max_path_length-1,instance.n])
+            for i in range(0,instance.max_path_length):
+                for k in range(instance.n):
+                    s.add(self.__exactly_one(courier_route[:,:,k].flatten().tolist()))
+                s.add(self.__exactly_one(courier_route[j,i,:].flatten().tolist()))
+            s.add(self.__at_least_one(courier_route[j,:,1:instance.n].flatten().tolist()))
+
+
+
+        if s.check() == sat:
+            for j in range(instance.m):
+                print("_______________________")
+                for i in range(instance.max_path_length):
+                    m = s.model()
+                    print(i,[k+1 for k in range(instance.n+1) if m.evaluate(courier_route[j,i,k])])
+        else:
+            print("nope")
+#myMode = MySatModel()
+
+Sat_model().solve(Instance('instances/inst07.dat'))
