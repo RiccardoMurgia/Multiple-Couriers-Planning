@@ -12,7 +12,7 @@ class MySatModel:
     def __at_most_one_pack_constraint(bool_vars: list):
         return [Not(And(pair[0], pair[1])) for pair in combinations(bool_vars, 2)]
 
-
+    """
     def bool_encode(self, numbers: list, size: int, binary_num_length: int, name: str):  # numbers size,cap
         bool_num = [[Bool(f"{name}_{n}_{b}") for n in range(size)] for b in range(binary_num_length)]
 
@@ -24,6 +24,8 @@ class MySatModel:
                 else:
                     self.my_solver.add(Not(bool_num[i][b]))
         return bool_num
+
+    """
 
     @staticmethod
     def __start_end_origin_constraint(bool_vars: list, origin: int, N: int, max_path: int) -> tuple:
@@ -74,67 +76,13 @@ class MySatModel:
             for i in range(1, max_path - 2):
                 self.my_solver.add(MySatModel.__go_stay_at_the_origin__if_finished_constraint)
 
-        # check maxload                      ##todo
-        max_num = max(cap)
-        binary_cap_length = MySatModel.__get_number_of_bit(max_num)
-
-        bool_size = self.bool_encode(size, N, binary_cap_length, "S")
-        bool_cap = self.bool_encode(cap, M, binary_cap_length, "C")
-
-        bool_sum = [[False for _ in range(M)] for _ in range(N)]
-        for j in range(M):
-            indexes = []
-            for i in range(N):
-                if MySatModel.__at_least_one_pack_constraint(courier_route[j, : max_path - 2, i]):  # if it has pack
-                    indexes.append(i)
-
-            # Sum bitwise
-            carry = False
-            for k in indexes:
-                for b in range(binary_cap_length):
-                    tmp_value = bool_sum[j][b]
-                    bool_sum[j][b] = Xor(Xor(bool_size[k][b], bool_sum[j][b]), carry)
-                    carry = And(bool_size[k][b], tmp_value)
-
-            # A >= B  =>  (A AND (NOT B)) OR (A nxor B)
-            comparison = False
-            for b in range(binary_cap_length, 0, -1):
-                tmp_and = True
-                for k in range(b, binary_cap_length):
-                    my_xor = Not(Xor(bool_sum[j][k], bool_cap[j][k]))
-                    tmp_and = And(tmp_and, my_xor)
-
-                tmp = And(bool_cap[j][b], Not(bool_sum[j][b]))
-                comparison = Or(And(tmp, tmp_and), comparison)
-
-            self.my_solver.add(comparison)
-
-        self.my_solver.add(bool_sum <= bool_cap)
-
-        # minimizzare distanza massima peercorsa dei corrieri
-        binary_D = [[Bool(f"D_{k}_{b}") for k in range(N)] for b in range(self.__get_number_of_bit(max(D)))]
-
-        # Constraints to represent binary encoding for distances
-        for k in range(N):
-            binary_num = self.__binary_encode(D[k], len(binary_D))
-            for b in range(len(binary_D)):
-                if binary_num[b] == "1":
-                    self.my_solver.add(binary_D[b][k])
-                else:
-                    self.my_solver.add(Not(binary_D[b][k]))
-
-        # Define binary variables for courier distances
-        courier_distance_vars = [[Bool(f"courier_distance_{j}_{b}") for j in range(M)] for b in range(len(binary_D))]
+        # check max_load      # A >= B  =>  (A AND (NOT B)) OR (A nxor B)
 
         # Constraints to calculate the binary distance for each courier
-        for j in range(M):
-            for b in range(len(binary_D)):
-                self.my_solver.add(courier_distance_vars[b][j] ==
-                                   Sum([If(courier_route[j][i][k], binary_D[b][k], False)
-                                        for i in range(max_path) for k in range(N)]))
 
         # Minimize the maximum distance
-        max_distance = courier_distance_vars[-1][0]  # Most significant bit represents the maximum distance
+
+        max_distance = None
         self.my_optimizer.minimize(max_distance)
 
         if self.my_solver.check() == sat:
