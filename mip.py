@@ -4,10 +4,11 @@ from gurobipy import GRB
 from instance import Instance
 from ortools.linear_solver import pywraplp
 import pulp as lp
+import matplotlib.pyplot as plt
 
 
 
-instance = Instance("instances/inst07.dat")
+instance = Instance("instances/inst05.dat")
 
 # Data
 m = instance.m  # number of couriers
@@ -188,6 +189,32 @@ def print_results(N, table, courier_distance, size, model):
 
     # Print the objective value
     print(f"\nOptimal solution: {model.objective.value()}")
+
+    # Create a figure and axis
+    fig, ax = plt.subplots()
+
+    # Iterate through each courier's route
+    for k in range(m):
+        route = courier_routes[k]
+
+        # Extract x and y coordinates for the route (you'll need to replace these with your actual coordinates)
+        y_coords = [i for (i,j) in route]
+        y_coords.append(N-1)
+        x_coords = [i for i in range(1,len(route)+2)]
+
+        # Plot the courier's route
+        ax.plot(x_coords, y_coords, label=f'Courier {k + 1}', marker='o', markersize=6, linestyle='-', linewidth=1)
+
+
+    # Add labels, legend, and title
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Nodes Visited')
+    ax.legend()
+    ax.set_title('Courier Routes')
+
+    # Show the plot
+    plt.show()
+
 
 
 #gurobi_model()
