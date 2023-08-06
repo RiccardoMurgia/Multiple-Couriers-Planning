@@ -174,33 +174,36 @@ class D2B:
         final_num = Bool(str(uuid.uuid4()))
         operations.append(iff(carry, final_num))
         new_num.append(final_num)
+        operations = operations + self.get_constraints() + other.get_constraints()
         return D2B(binary=list(reversed(new_num)),
                    name=f"({self.name} + {other.name})",
                    pre_operations=operations)
 
     def __mul__(self, other):
 
-        not_boolean, boolean = self.__get_operands(self, other)
+        not_boolean, boolean, not_boolean_operations, boolean_operations = self.__get_operands(
+            self, other)
         new_num = []
         operations = []
         for n in not_boolean.all():
             new_n = Bool(f'mult_{self.name}_{n}_{other}')
             operations.append(iff(And(n, boolean), new_n))
             new_num.append(new_n)
+        operations = operations + not_boolean_operations + boolean_operations
         return D2B(binary=new_num,
                    name=f'({self.name} * {other})',
                    pre_operations=operations)
 
     def __get_operands(self, first, second):
         if isinstance(second, BoolRef):
-            return first, second
+            return first, second, first.get_constraints(), []
         if isinstance(first, BoolRef):
-            return second, first
+            return second, first, second.get_constraints(), []
         if isinstance(first, D2B) and isinstance(second, D2B):
             if second.is_bool:
-                return first, second.get(0)
+                return first, second.get(0), first.get_constraints(), second.get_constraints()
             if first.is_bool:
-                return second, first.get(0)
+                return second, first.get(0), second.get_constraints(), first.get_constraints()
         if not (first.is_bool or second.is_bool):
             raise
             Exception(
@@ -255,17 +258,12 @@ def usage():
     r = _1234 + _5678
     s.add(r.get_constraints())
     _5 = D2B(5, "five")
-    s.add(_5.get_constraints())
     a = _5 * b
-    s.add(a.get_constraints())
     op = _six * one
-    s.add(op.get_constraints())
     a += op
-    s.add(a.get_constraints())
     k = Bool("f")
     s.add(Not(k))
     op = _4 * k
-    s.add(op.get_constraints())
     a += op
     s.add(a.get_constraints())
     print(s.check())
