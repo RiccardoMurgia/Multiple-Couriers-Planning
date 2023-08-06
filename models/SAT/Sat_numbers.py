@@ -108,12 +108,12 @@ class D2B:
         return constraints
 
     def add_geq(self, other):
-        return [Or(And(self.add_greater(self, other)),
-                   And(self.add_equal(self, other)))]
+        return [Or(And(self.add_greater(other)),
+                   And(self.add_equal(other)))]
 
     def add_leq(self, other):
-        return [Or(And(self.add_less(self, other)),
-                   And(self.add_equal(self, other)))]
+        return [Or(And(self.add_less(other)),
+                   And(self.add_equal(other)))]
 
     def to_decimal(self, model):
         num = 0
@@ -224,9 +224,9 @@ def usage():
     ten = seven + three
     one = D2B(1, "one")
     res = seven * one
-    b = Bool('zero')
+    b = Or(Bool('zero'), Bool("one"))
     res2 = seven * b
-    s.add(Not(b))
+    s.add(b)
     s.add(seven.get_constraints())
     s.add(three.get_constraints())
     s.add(ten.get_constraints())
@@ -254,6 +254,20 @@ def usage():
     s.add(_5678.get_constraints())
     r = _1234 + _5678
     s.add(r.get_constraints())
+    _5 = D2B(5, "five")
+    s.add(_5.get_constraints())
+    a = _5 * b
+    s.add(a.get_constraints())
+    op = _six * one
+    s.add(op.get_constraints())
+    a += op
+    s.add(a.get_constraints())
+    k = Bool("f")
+    s.add(Not(k))
+    op = _4 * k
+    s.add(op.get_constraints())
+    a += op
+    s.add(a.get_constraints())
     print(s.check())
     if s.check() == sat:
         m = s.model()
@@ -274,11 +288,13 @@ def usage():
         print("_six",
               [m.evaluate(v) for v in _six.all()], _six.to_decimal(m))
         print("_18",
-              [(m.evaluate(_18.get(i)), i) for i in range(_18.binary_length)], _18.to_decimal(m))
+              [m.evaluate(v) for v in _18.all()], _18.to_decimal(m))
         print("_24",
-              [(m.evaluate(_24.get(i)), i) for i in range(_24.binary_length)], _24.to_decimal(m))
+              [m.evaluate(v) for v in _24.all()], _24.to_decimal(m))
         print("r",
               [m.evaluate(v) for v in r.all()], r.to_decimal(m))
+        print("a", a.to_decimal(m))
 
 
-usage()
+if __name__ == "__main__":
+    usage()
