@@ -80,8 +80,10 @@ class Sat_model:
 
         return s, courier_load, courier_route, loads, distances, max_load, max_distance
 
-    def update_max_distance(self, s, max_distance, distances):
-        pass
+    def __update_max_distance(self, s, max_distance, model):
+        new_min_path = D2B(max_distance.to_decimal(model), "new_min_path")
+        s.add(new_min_path)
+        s.add(new_min_path.add_geq(max_distance))
 
     def solve(self, instance: 'Instance'):
         
