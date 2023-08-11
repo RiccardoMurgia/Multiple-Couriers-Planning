@@ -1,12 +1,12 @@
-from mip import Model, xsum, INTEGER, MINIMIZE, MAXIMIZE, minimize, BINARY, OptimizationStatus
+import mip
 from ortools.linear_solver import pywraplp
+import pulp
 from instance import Instance
 import time
 import multiprocessing
 import os
 import json
 import jsbeautifier
-import pulp
 import datetime
 
 
@@ -113,29 +113,29 @@ def mip_model(instance, param, h = False):
     start_time = time.time()
 
     # Create model
-    model = Model(solver_name='CBC')
-    model.verbose = 0  # Set verbosity level if desired
+    model = mip.Model(solver_name=mip.CBC)
+    model.verbose = 0
 
     # Create variables
     table = {}
     for k in range(instance.m):
         for i in range(instance.origin):
             for j in range(instance.origin):
-                table[k, i, j] = model.add_var(var_type=INTEGER, name=f'table_{k}_{i}_{j}')
+                table[k, i, j] = model.add_var(var_type=mip.INTEGER, name=f'table_{k}_{i}_{j}')
 
-    courier_distance = [model.add_var(var_type=INTEGER, name=f'courier_distance_{k}') for k in range(instance.m)]
+    courier_distance = [model.add_var(var_type=mip.INTEGER, name=f'courier_distance_{k}') for k in range(instance.m)]
 
     # Auxiliary variables to avoid subtours
     u = {}
     for k in range(instance.m):
         for i in range(instance.origin):
-            u[k, i] = model.add_var(var_type=INTEGER, lb=1, ub= instance.origin, name=f'u_{k}_{i}')
+            u[k, i] = model.add_var(var_type=mip.INTEGER, lb=1, ub= instance.origin, name=f'u_{k}_{i}')
     
     # Objective
-    obj = model.add_var(var_type=INTEGER, name='obj')
+    obj = model.add_var(var_type=mip.INTEGER, name='obj')
 
     for k in range(instance.m):
-        model += courier_distance[k] == xsum(instance.distances[i][j] * table[k, i, j] for i in range(instance.origin) for j in range(instance.origin))
+        model += courier_distance[k] == mip.xsum(instance.distances[i][j] * table[k, i, j] for i in range(instance.origin) for j in range(instance.origin))
 
     # Upper and lower bounds
     model += obj <= instance.max_path
@@ -150,23 +150,23 @@ def mip_model(instance, param, h = False):
             # A courier can't move to the same item
             model += table[k, i, i] == 0
             # If an item is reached, it is also left by the same courier
-            model += xsum(table[k, i, j] for j in range(instance.origin)) == xsum(table[k, j, i] for j in range(instance.origin))
+            model += mip.xsum(table[k, i, j] for j in range(instance.origin)) == mip.xsum(table[k, j, i] for j in range(instance.origin))
 
     for j in range(instance.origin - 1):
         # Every item is delivered
-        model += xsum(table[k, i, j] for k in range(instance.m) for i in range(instance.origin)) == 1
+        model += mip.xsum(table[k, i, j] for k in range(instance.m) for i in range(instance.origin)) == 1
 
     for k in range(instance.m):
         # Couriers start at the origin and end at the origin
-        model += xsum(table[k, instance.origin - 1, j] for j in range(instance.origin - 1)) == 1
-        model += xsum(table[k, j, instance.origin - 1] for j in range(instance.origin - 1)) == 1
+        model += mip.xsum(table[k, instance.origin - 1, j] for j in range(instance.origin - 1)) == 1
+        model += mip.xsum(table[k, j, instance.origin - 1] for j in range(instance.origin - 1)) == 1
 
         # Each courier can carry at most max_load items
-        model += xsum(table[k, i, j] * instance.size[j] for i in range(instance.origin) for j in range(instance.origin - 1)) <= instance.max_load[k]
+        model += mip.xsum(table[k, i, j] * instance.size[j] for i in range(instance.origin) for j in range(instance.origin - 1)) <= instance.max_load[k]
 
         # Each courier must visit at least min_packs items and at most max_path_length items
-        model += xsum(table[k, i, j] for i in range(instance.origin) for j in range(instance.origin - 1)) >= instance.min_packs
-        model += xsum(table[k, i, j] for i in range(instance.origin) for j in range(instance.origin - 1)) <= instance.max_path_length
+        model += mip.xsum(table[k, i, j] for i in range(instance.origin) for j in range(instance.origin - 1)) >= instance.min_packs
+        model += mip.xsum(table[k, i, j] for i in range(instance.origin) for j in range(instance.origin - 1)) <= instance.max_path_length
         
     # If a courier goes for i to j then it cannot go from j to i, except for the origin 
     # (this constraint it is not necessary for the model to work, but check if it improves the solution)
@@ -184,7 +184,7 @@ def mip_model(instance, param, h = False):
                     model += u[k, j] - u[k, i] >= 1 - instance.origin * (1 - table[k, i, j])
 
     # Set the objective
-    model.objective = minimize(obj)
+    model.objective = mip.minimize(obj)
 
     # Parameters
     #model.emphasis = 2  # Set to 1 or 2 to get progressively better solutions
@@ -212,17 +212,17 @@ def mip_model(instance, param, h = False):
     inst_time = end_time - start_time
  
     # Output
-    if status == OptimizationStatus.OPTIMAL or status == OptimizationStatus.FEASIBLE:
+    if status == mip.OptimizationStatus.OPTIMAL or status == mip.OptimizationStatus.FEASIBLE:
         result = {
             "time": round(inst_time,3),
-            "optimal": status == OptimizationStatus.OPTIMAL,
+            "optimal": status == mip.OptimizationStatus.OPTIMAL,
             "obj": model.objective_value,
             "sol": get_solution(lib,instance, table)
         }
     else:
         result = {
             "time": round(inst_time,3),
-            "optimal": status == OptimizationStatus.OPTIMAL,
+            "optimal": status == mip.OptimizationStatus.OPTIMAL,
             "obj": None,
             "sol": None
         }
@@ -433,8 +433,6 @@ def pulp_model(instance,solver = pulp.PULP_CBC_CMD(msg=0, timeLimit=300)):
     return result
 
 
-
-
 # Log file
 log = open("res/MIP/log.txt", "a")
 
@@ -449,7 +447,7 @@ print_log("\n\n---------------------------------------------- LOGGING {} -------
 
 #Solve all the instances
 start_tot_time = time.time()
-for i in [0,1,2,3,4,5]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
+for i in [11,12,13,14,15,16,17,18,19,20,21]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
     if i < 10:
         instance = Instance("instances/inst0" + str(i) + ".dat")
     else:
@@ -465,7 +463,7 @@ for i in [0,1,2,3,4,5]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
     save_results("MIP",instance.name,result)
 
     #print("\nMIP MODEL with Clark and Wright Savings Algorithm")
-    #result = mip_model(instance,h=True)
+    #result = mip(instance,h=True)
 
     print_log("\nOR MODEL")
     result = or_model(instance)
@@ -478,7 +476,7 @@ for i in [0,1,2,3,4,5]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
     ## PARAMETER TUNING
     #for param in [1,2,3]:
     #    print("\nMIP MODEL with " + str(param) + " cuts")
-    #    mip_model(instance,param)
+    #    mip(instance,param)
 
 end_tot_time = time.time()
 print_log('\n\nTotal time: {} seconds'.format(round(end_tot_time - start_tot_time,3)))
