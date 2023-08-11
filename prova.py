@@ -37,6 +37,7 @@ class Sat_model:
         loads = [D2B(0, "zero") for _ in range(instance.m)]
         courier_load = np.empty(shape=(instance.m, instance.n), dtype=object)
         courier_route = np.empty(shape=(instance.m, instance.n + 1, instance.n + 1), dtype=object)
+        dm = np.array([[D2B(instance.distances[i,j]) for i in range(instance.n + 1)] for j in range(instance.n + 1)])
         s = Solver()
         for load in max_load:
             s.add(load.get_constraints())
@@ -66,63 +67,74 @@ class Sat_model:
             for i in range(instance.n):
                 s.add(self.__at_most_one(flatten(courier_route[j,i,:].tolist())))
                 s.add(self.__at_most_one(flatten(courier_route[j,:,i].tolist())))
-                s.add(iff(courier_load[j,i], Or(courier_route[j,i,:].tolist())))
+                s.add(iff(courier_load[j,i], 
+                          And(Or(courier_route[j,i,:].tolist()),
+                              Or(courier_route[j, :, i].tolist()))
+                          ))
+                s.add(
+                    iff(
+                        Not(courier_load[j,i]), 
+                            And(
+                            [Not(e) for e in courier_route[j,i,:]] + [Not(e) for e in courier_route[j,:,i]]
+                        )))
+                for k in range(instance.n):
+                    s.add(Not(And(courier_route[j, i, k], courier_route[j, k, i])))
+                s.add(Not(courier_route[j,i,i]))
             for i in range(instance.n+1):
                 for k in range(instance.n+1):
-                    distances[j] += D2B(instance.distances[i,k], f"distance_{i}_{k}") * courier_route[j,i,k]
+                    d = dm[i,k] * courier_route[j,i,k]
+                    distances[j] += d * courier_route[j,i,k]
             s.add(distances[j].get_constraints())
-        max_len = max(distances, key= lambda d: d.binary_length).binary_length
-        max_distance = D2B(binary=[Bool(f"max_distance_{f}") for f in range(max_len + 2)])
-        s.add(min_path.add_geq(max_distance))
-        s.add(max_path.add_leq(max_distance))
-        for j in range(instance.m):
-            s.add(distances[j].add_geq(max_distance))
 
+        max_len = max(distances, key= lambda d: d.binary_length).binary_length
+        max_distance = D2B(binary=[Bool(f"max_distance_{f}") for f in range(max_len + 1)])
+        s.add(Or([And(distances[j].add_equal(max_distance)) for j in range(instance.m)]))
+        s.add(And([And(max_distance.add_geq(distances[j])) for j in range(instance.m)]))
+        s.add(min_path.add_leq(max_distance))
+        s.add(max_path.add_geq(max_distance))
         return s, courier_load, courier_route, loads, distances, max_load, max_distance
 
     def __update_max_distance(self, s, max_distance, model):
         new_min_path = D2B(max_distance.to_decimal(model), "new_min_path")
-        s.add(new_min_path)
-        s.add(new_min_path.add_geq(max_distance))
+        s.add(new_min_path.get_constraints())
+        s.add(new_min_path.add_greater(max_distance))
+        return s
 
     def solve(self, instance: 'Instance'):
         
         s, courier_load, courier_route, loads, distances, max_load, max_distance = self.__build_base_model(instance)
-
         print()
         print("constraints created")
-        if s.check() == sat:
+        while(s.check() == sat):
             m = s.model()
             for j in range(instance.m):
                 print(
                     "=========================================================================")
-                print("courier ", j)
-                print("packs ", [i + 1 for i in range(instance.n) if m.evaluate(courier_load[j,i])])
-                print("route\n", self.get_route(courier_route[j,:,:], m, instance.n, instance.n))
+                print("courier", j)
+                print("packs", [i + 1 for i in range(instance.n) if m.evaluate(courier_load[j,i])])
+                print("route", self.get_route(courier_route[j,:,:], m, instance.n + 1, instance.n + 1))
                 print("load ", loads[j].to_decimal(m))
                 print("max load ", max_load[j].to_decimal(m))
                 print("distance ", distances[j].to_decimal(m))
             print(
                 "=========================================================================")
             print("max distance", max_distance.to_decimal(m))
-        else:
-            print("unsat")
-
+            print("========================================NEW SOLUTION===============================")
+            s = self.__update_max_distance(s,max_distance,m)
     def get_route(self, route_matrix, model, start, end):
-        return "\n".join([" ".join(["1" if model.evaluate(route_matrix[i,j]) else "0" for j in range(start+1)]) for i in range(start+1)])
-        def get_next(line, model):
-            for i in range(len(line)):
-                if model.evaluate(line[i]):
-                    return i
-        
+        pairs = [(i+1,j+1) for i in range(route_matrix.shape[0]) for j in range(route_matrix.shape[1]) if model.evaluate(route_matrix[i,j])]
         route = [start]
-        i = start
+        current = start
+        print(pairs)
+        def get_next(current):
+            for pair in pairs:
+                if pair[0] == current:
+                    return pair[1]
         while True:
-            i = get_next(flatten(route_matrix[i,:].tolist()), model)
-            route.append(i)
-            if i == end:
+            current = get_next(current)
+            route.append(current)
+            if current == end:
                 return route
-            
 
 
 Sat_model().solve(Instance('instances/inst00.dat'))

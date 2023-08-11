@@ -6,8 +6,8 @@ import uuid
 
 class D2B:
     def __init__(self, decimal_number: 'int' = 0, name: 'str' = "number",
-                 binary: 'list' = None, pre_operations: 'list' = []) -> None:
-        if binary is not None:
+                 binary: 'list' = [], pre_operations: 'list' = []) -> None:
+        if len(binary) > 0:
             self.binary_length = len(binary)
             self.__representation = binary
             self.name = name
@@ -18,14 +18,14 @@ class D2B:
         self.__operations = pre_operations
         self.binary_length = self.__get_length(decimal_number)
         self.__representation = self.__convert(decimal_number,
-                                               self.binary_length, name)
+                                               self.binary_length)
         self.name = name
         self.is_bool = self.binary_length == 1
 
     def __get_length(self, number: 'int') -> int:
         return len(bin(number)[2:])
 
-    def __convert(self, number: 'int', length: 'int', name: 'str'):
+    def __convert(self, number: 'int', length: 'int'):
         num = []
         str_num = bin(number)[2:]
         for i in range(length):
@@ -51,20 +51,25 @@ class D2B:
         max_length = max(self.binary_length, other.binary_length)
 
         constraints = []
-        for i in range(min_length):
-            constraint_i = [And(self.get(i), Not(other.get(i)))]
-            for k in range(i):
+        for i in range(1, min_length + 1):
+            constraint_i = [And(self.get(self.binary_length - i), Not(other.get(other.binary_length - i)))]
+            for k in range(i + 1, min_length + 1):
                 constraint_i.append(Or(
-                    And(Not(self.get(k)), Not(other.get(k))),
-                    self.get(k)))
+                    And(Not(self.get(self.binary_length - k)), Not(other.get(other.binary_length - k))),
+                    self.get(self.binary_length - k)))
 
             constraints.append(And(constraint_i))
         constraints = [Or(constraints)]
         if min_length == self.binary_length:
             constraints += [
-                Not(other.get(i))
-                for i in range(min_length, max_length)
+                Not(other.get(other.binary_length - i))
+                for i in range(min_length + 1, max_length + 1)
             ]
+        if min_length == other.binary_length:
+            constraints += [
+                self.get(self.binary_length - i) for i in range(min_length + 1, max_length + 1)
+            ]
+            constraints = [Or(constraints)]
         return constraints
 
     def add_less(self, other):
@@ -72,18 +77,23 @@ class D2B:
         max_length = max(self.binary_length, other.binary_length)
 
         constraints = []
-        for i in range(min_length):
-            constraint_i = [And(Not(self.get(i), other.get(i)))]
-            for k in range(i):
+        for i in range(1, min_length + 1):
+            constraint_i = [And(Not(self.get(self.binary_length - i), other.get(other.binary_length - i)))]
+            for k in range(i + 1, min_length + 1):
                 constraint_i.append(Or(
-                    And(Not(self.get(k)), Not(other.get(k))),
-                    other.get(k)))
+                    And(Not(self.get(self.binary_length - k)), Not(other.get(other.binary_length - k))),
+                    other.get(other.binary_length - k)))
             constraints.append(And(constraint_i))
         constraints = [Or(constraints)]
         if max_length == self.binary_length:
-            constraints += [Not(self.get(i))
-                            for i in range(min_length, max_length)
+            constraints += [Not(self.get(self.binary_length - i))
+                            for i in range(min_length + 1, max_length + 1)
                             ]
+        if max_length == other.binary_length:
+            constraints += [
+                other.get(other.binary_length - i) for i in range(min_length + 1, max_length + 1)
+            ]
+            constraints = [Or(constraints)]
         return constraints
 
     def add_equal(self, other):
@@ -116,11 +126,23 @@ class D2B:
                    And(self.add_equal(other)))]
 
     def to_decimal(self, model):
-        num = 0
+        num_list = []
         for i in reversed(range(self.binary_length)):
-            exponent = self.binary_length - i - 1
-            num += 2 ** exponent if model.evaluate(self.get(i)) else 0
+            num_list.append(self.__get_value(i,model))
+        num = 0
+        for i in range(self.binary_length):
+            num += num_list[i]        
         return num
+
+    def __get_value(self, i, model):
+        value = False
+        try:
+            value = bool(model.evaluate(self.get(i)))
+        except:
+            pass
+        if value:
+            return 2 ** (self.binary_length - i - 1)
+        return 0
 
     def __str__(self):
         return self.name + " " + str(self.__representation)
@@ -186,7 +208,7 @@ class D2B:
         new_num = []
         operations = []
         for n in not_boolean.all():
-            new_n = Bool(f'mult_{self.name}_{n}_{other}')
+            new_n = Bool(str(uuid.uuid4()))
             operations.append(iff(And(n, boolean), new_n))
             new_num.append(new_n)
         operations = operations + not_boolean_operations + boolean_operations
@@ -204,10 +226,8 @@ class D2B:
                 return first, second.get(0), first.get_constraints(), second.get_constraints()
             if first.is_bool:
                 return second, first.get(0), second.get_constraints(), first.get_constraints()
-        if not (first.is_bool or second.is_bool):
-            raise
-            Exception(
-                "Error: implelemented mul only between D2B and booleans")
+        
+        raise Exception("Error: implelemented mul only between D2B and booleans")
 
     __rmul__ = __mul__
 
@@ -227,9 +247,9 @@ def usage():
     ten = seven + three
     one = D2B(1, "one")
     res = seven * one
-    b = Or(Bool('zero'), Bool("one"))
+    b = Bool('zero')    
     res2 = seven * b
-    s.add(b)
+    s.add(Not(b))
     s.add(seven.get_constraints())
     s.add(three.get_constraints())
     s.add(ten.get_constraints())
@@ -247,9 +267,10 @@ def usage():
     _4 = D2B(4, "4")
     s.add(_2.get_constraints())
     s.add(_4.get_constraints())
-    _six = _2 + _4
+    _six = D2B(binary=[Bool("six1"), Bool("six2"), Bool("six3"), Bool("six4"), Bool("six5")])
     s.add(_six.get_constraints())
-    s.add(six.add_equal(_six))
+    s.add(six.add_geq(_six))
+    s.add(six.add_leq(_six))
     # s.add(_24.add_less(_18))
     _1234 = D2B(1234, "1234")
     _5678 = D2B(5678, "5678")
