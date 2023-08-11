@@ -48,10 +48,14 @@ def get_solution(lib,instance, table):
                         courier_routes[k][i], courier_routes[k][j] = courier_routes[k][j], courier_routes[k][i]
                         break
 
+
     # Remove instance.origin - 1 from the routes
     for k in range(instance.m):
         courier_routes[k] = [route[0] for route in courier_routes[k]]
-    
+        if len(courier_routes[k]) > 0:
+            courier_routes[k].pop(0)
+
+
     # Create a list to store the routes for each courier
     routes = [courier_routes[k] for k in range(instance.m)]
 
@@ -193,7 +197,7 @@ def mip_model(instance, param, h = False):
     #model.pump_passes = 1  # Perform one pass of diving heuristics
     #model.probing_level = 3  # Enable probing
     #model.rins = 1  # Enable RINS heuristic
-    #model.threads = multiprocessing.cpu_count()
+    model.threads = multiprocessing.cpu_count()
 
     if h:
         # Call the Clark and Wright Savings Algorithm
@@ -206,8 +210,18 @@ def mip_model(instance, param, h = False):
 
         print('Usign warm start CWS: Initial solution found in {} seconds'.format(time.time() - start_time))
 
+    end_time = time.time()
+    inst_time = end_time - start_time
 
-    status = model.optimize(max_seconds=300)
+    if inst_time >= 300:
+        return {
+            "time": round(inst_time,3),
+            "optimal": False,
+            "obj": None,
+            "sol": None
+        }
+
+    status = model.optimize(max_seconds=int(300-inst_time))
     end_time = time.time()
     inst_time = end_time - start_time
  
@@ -237,7 +251,6 @@ def or_model(instance, solv='CBC_MIXED_INTEGER_PROGRAMMING'):
 
     # Create solver
     solver = pywraplp.Solver.CreateSolver(solv)
-    solver.SetTimeLimit(300 * 1000)
 
     # Create variables
     table = {}
@@ -309,6 +322,18 @@ def or_model(instance, solv='CBC_MIXED_INTEGER_PROGRAMMING'):
     # Set the objective
     solver.Minimize(obj)
 
+    end_time = time.time()
+    inst_time = end_time - start_time
+
+    if inst_time >= 300:
+        return {
+            "time": round(inst_time,3),
+            "optimal": False,
+            "obj": None,
+            "sol": None
+        }
+    solver.SetTimeLimit(int((300-inst_time) * 1000))
+
     # Solve the model
     status = solver.Solve()
     end_time = time.time()
@@ -332,7 +357,7 @@ def or_model(instance, solv='CBC_MIXED_INTEGER_PROGRAMMING'):
     
     return result
 
-def pulp_model(instance,solver = pulp.PULP_CBC_CMD(msg=0, timeLimit=300)):
+def pulp_model(instance):
 
     lib = "pulp"
 
@@ -408,7 +433,19 @@ def pulp_model(instance,solver = pulp.PULP_CBC_CMD(msg=0, timeLimit=300)):
     # Set the objective
     model += obj
 
+    end_time = time.time()
+    inst_time = end_time - start_time
+
+    if inst_time >= 300:
+        return {
+            "time": round(inst_time,3),
+            "optimal": False,
+            "obj": None,
+            "sol": None
+        }
+
     # Solve the problem
+    solver = pulp.PULP_CBC_CMD(msg=0, timeLimit=int(300-inst_time))
     status = model.solve(solver)
 
     end_time = time.time()
@@ -447,7 +484,7 @@ print_log("\n\n---------------------------------------------- LOGGING {} -------
 
 #Solve all the instances
 start_tot_time = time.time()
-for i in [11,12,13,14,15,16,17,18,19,20,21]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
+for i in [10,11,12,13,14,15,16,17,18,19,20,21]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
     if i < 10:
         instance = Instance("instances/inst0" + str(i) + ".dat")
     else:
@@ -456,11 +493,6 @@ for i in [11,12,13,14,15,16,17,18,19,20,21]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,1
     print_log("\n------------------------------------------------------------------------")
     print_log("Instance " + str(i))
     print_log("------------------------------------------------------------------------")
-
-    print_log("\nMIP MODEL")
-    result = mip_model(instance,h=False, param=0)
-    print_log(result)
-    save_results("MIP",instance.name,result)
 
     #print("\nMIP MODEL with Clark and Wright Savings Algorithm")
     #result = mip(instance,h=True)
@@ -472,6 +504,11 @@ for i in [11,12,13,14,15,16,17,18,19,20,21]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,1
     print_log("\nPULP MODEL")
     result = pulp_model(instance)
     print_log(result)
+
+    print_log("\nMIP MODEL")
+    result = mip_model(instance,h=False, param=0)
+    print_log(result)
+    save_results("MIP",instance.name,result)
 
     ## PARAMETER TUNING
     #for param in [1,2,3]:
