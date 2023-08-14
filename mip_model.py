@@ -8,6 +8,7 @@ import os
 import json
 import jsbeautifier
 import datetime
+import z3
 
 
 # Define the paths for each approach's result folder
@@ -32,6 +33,8 @@ def get_solution(lib,instance, table):
             courier_routes[k] = [[i, j] for i in range(instance.origin) for j in range(instance.origin) if table[k, i, j].solution_value() == 1]
         elif lib == "pulp":
             courier_routes[k] = [[i, j] for i in range(instance.origin) for j in range(instance.origin) if table[k, i, j].value() == 1]
+        elif lib == "z3":
+            courier_routes[k] = [[i, j] for i in range(instance.origin) for j in range(instance.origin) if table[k][i][j]]
 
     # Reorder the routes to start from the origin
     for k in range(instance.m):
@@ -469,54 +472,59 @@ def pulp_model(instance):
 
     return result
 
+if __name__ == "__main__":
 
-# Log file
-log = open("res/MIP/log.txt", "a")
+    #Create directory if it doesn't exist
+    if not os.path.exists("res/MIP"):
+        os.makedirs("res/MIP")
 
-# Print in the log file and in the console
-def print_log(string):
-    log.write(str(string) + "\n")
-    print(string)
+    # Log file
+    log = open("res/MIP/log.txt", "a")
 
-# Print the header
-print_log("\n\n---------------------------------------------- LOGGING {} ----------------------------------------------\n\n"
-          .format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    # Print in the log file and in the console
+    def print_log(string):
+        log.write(str(string) + "\n")
+        print(string)
 
-#Solve all the instances
-start_tot_time = time.time()
-for i in [10,11,12,13,14,15,16,17,18,19,20,21]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
-    if i < 10:
-        instance = Instance("instances/inst0" + str(i) + ".dat")
-    else:
-        instance = Instance("instances/inst" + str(i) + ".dat")
+    # Print the header
+    print_log("\n\n---------------------------------------------- LOGGING {} ----------------------------------------------\n\n"
+            .format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-    print_log("\n------------------------------------------------------------------------")
-    print_log("Instance " + str(i))
-    print_log("------------------------------------------------------------------------")
+    #Solve all the instances
+    start_tot_time = time.time()
+    for i in [2]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
+        if i < 10:
+            instance = Instance("instances/inst0" + str(i) + ".dat")
+        else:
+            instance = Instance("instances/inst" + str(i) + ".dat")
 
-    #print("\nMIP MODEL with Clark and Wright Savings Algorithm")
-    #result = mip(instance,h=True)
+        print_log("\n------------------------------------------------------------------------")
+        print_log("Instance " + str(i))
+        print_log("------------------------------------------------------------------------")
 
-    print_log("\nOR MODEL")
-    result = or_model(instance)
-    print_log(result)
+        #print("\nMIP MODEL with Clark and Wright Savings Algorithm")
+        #result = mip(instance,h=True)
 
-    print_log("\nPULP MODEL")
-    result = pulp_model(instance)
-    print_log(result)
+        print_log("\nOR MODEL")
+        result = or_model(instance)
+        print_log(result)
 
-    print_log("\nMIP MODEL")
-    result = mip_model(instance,h=False, param=0)
-    print_log(result)
-    save_results("MIP",instance.name,result)
+        print_log("\nPULP MODEL")
+        result = pulp_model(instance)
+        print_log(result)
 
-    ## PARAMETER TUNING
-    #for param in [1,2,3]:
-    #    print("\nMIP MODEL with " + str(param) + " cuts")
-    #    mip(instance,param)
+        print_log("\nMIP MODEL")
+        result = mip_model(instance,h=False, param=0)
+        print_log(result)
+        save_results("MIP",instance.name,result)
 
-end_tot_time = time.time()
-print_log('\n\nTotal time: {} seconds'.format(round(end_tot_time - start_tot_time,3)))
+        ## PARAMETER TUNING
+        #for param in [1,2,3]:
+        #    print("\nMIP MODEL with " + str(param) + " cuts")
+        #    mip(instance,param)
 
-# Close the log file
-log.close()
+    end_tot_time = time.time()
+    print_log('\n\nTotal time: {} seconds'.format(round(end_tot_time - start_tot_time,3)))
+
+    # Close the log file
+    log.close()
