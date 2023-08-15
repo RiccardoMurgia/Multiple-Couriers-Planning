@@ -32,9 +32,9 @@ class SatInteger:
             ni = Bool(str(uuid.uuid4()))
             num.append(ni)
             if str_num[i] == '1':
-                self.__operations.append(ni)
+                self.__operations.append(ni == True)
             else:
-                self.__operations.append(Not(ni))
+                self.__operations.append(ni == False)
         return np.array(num)
 
     def get(self, index: 'int'):
@@ -148,7 +148,10 @@ class SatInteger:
         return self.name + " " + str(self.__representation)
 
     def add_is_not_zero(self):
-        return Or(self.all())
+        return And([b == False for b in self.all()])
+
+    def add_is_zero(self):
+        return Not(Or(self.all()))
 
     def set_to(self, number:'int', keep_constraint:'bool' = False):
         if not keep_constraint:
@@ -171,40 +174,33 @@ class SatInteger:
 
         new_num = []
         num = Bool(str(uuid.uuid4()))
-        operations.append(iff(Xor(max_len_num.get(max_l - 1),
-                                  min_len_num.get(min_l - 1)), num))
-        carry = Bool(str(uuid.uuid4()))
-        operations.append(iff(And(max_len_num.get(max_l - 1),
-                                  min_len_num.get(min_l - 1)), carry))
+        operations.append(Xor(max_len_num.get(max_l - 1),
+                                  min_len_num.get(min_l - 1)) == num)
+        carry = And(max_len_num.get(max_l - 1),
+                                  min_len_num.get(min_l - 1))
         new_num.append(num)
         for i in range(2, min_length + 1):
             formula = Xor(max_len_num.get(max_l - i),
                           min_len_num.get(min_l - i))
             final_num = Bool(str(uuid.uuid4()))
-            operations.append(iff(Xor(formula, carry), final_num))
-            new_carry = Bool(str(uuid.uuid4()))
-            operations.append(iff(Or(And(formula, carry),
+            operations.append(Xor(formula, carry) == final_num)
+            carry = Or(And(formula, carry),
                                      And(max_len_num.get(max_l - i),
-                                         min_len_num.get(min_l - i))),
-                                  new_carry))
-            carry = new_carry
+                                         min_len_num.get(min_l - i)))
             new_num.append(final_num)
 
         if min_length != max_length:
 
             for i in range(min_length+1, max_length+1):
                 current_num = Bool(str(uuid.uuid4()))
-                operations.append(iff(
-                    Xor(max_len_num.get(max_l - i), carry), current_num))
+                operations.append(
+                    Xor(max_len_num.get(max_l - i), carry) == current_num)
 
-                new_carry = Bool(str(uuid.uuid4()))
-                operations.append(iff(
-                    And(max_len_num.get(max_l - i), carry), new_carry))
-                carry = new_carry
+                carry = And(max_len_num.get(max_l - i), carry)
                 new_num.append(current_num)
 
         final_num = Bool(str(uuid.uuid4()))
-        operations.append(iff(carry, final_num))
+        operations.append(carry == final_num)
         new_num.append(final_num)
         operations = operations + self.get_constraints() + other.get_constraints()
         return SatInteger(binary=list(reversed(new_num)),

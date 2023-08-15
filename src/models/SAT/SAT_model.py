@@ -88,7 +88,7 @@ class Sat_model:
 
         return max_distance
 
-    def __build_base_model(self, min_path, max_path, max_load, size, distance_matrix, m, n, origin, max_path_length, verbose=False):
+    def __build_base_model(self, min_path, max_path, max_load, size, distance_matrix, m, n, origin, max_path_length):
         s = Solver()
         
         min_path,\
@@ -151,11 +151,7 @@ class Sat_model:
             s.add(distances[j].get_constraints())
             s.add(loads[j].get_constraints())
             s.add(max_load[j].add_geq(loads[j]))
-            if verbose:
-                print(f"build = {j+1}/{m}", end='\r', flush=True)      
-            
-        print()
-
+        
         max_distance = Sat_model.__compute_max_distance(s, distances, min_path, max_path, m)
 
         return s, times, courier_route, loads, distances, max_load, max_distance
@@ -195,13 +191,13 @@ class Sat_model:
             sol["distance"].append(solution["distances"][j].to_decimal(m))
         return sol
 
-    def add_instance(self, instance:'Instance', build:'bool' = True, verbose=True) -> None:
+    def add_instance(self, instance:'Instance', build:'bool' = True) -> None:
         self.instance = instance
 
         if build:
-            self.build(verbose)
+            self.build()
 
-    def build(self,verbose):
+    def build(self):
         s, times, courier_route, loads, distances, max_load, max_distance = \
             self.__build_base_model(self.instance.min_path,
             self.instance.max_path,
@@ -212,7 +208,6 @@ class Sat_model:
             self.instance.n,
             self.instance.origin,
             self.instance.max_path_length,
-            verbose=verbose
             )
         
         self.s = s
@@ -226,13 +221,10 @@ class Sat_model:
 
         self.__solution = solution
 
-    def minimize(self, processes=8, timeout=300000, verbose=True):
+    def minimize(self, processes=8, timeout=300000):
         start = time()
         self.s.set("threads", processes)
         self.s.set("timeout",timeout)
-
-        # open("prova.smt2","w").write(self.s.to_smt2())
-        # return
 
         if self.s.check() != sat:
             return []
@@ -245,11 +237,6 @@ class Sat_model:
             solutions.append((sol, sol["max_distance"] == self.instance.min_path))
             current_time = int(time()-start)
             self.s.set("timeout", timeout - current_time)
-            if verbose:
-                print(sol)
-                print()
-                print(current_time)
-                print("==============================================================================================")
             if sol["max_distance"] == self.instance.min_path:
                 break
             self.s = self.__update_max_distance(self.s,sol["max_distance"], self.__solution["max_distance"])
@@ -257,8 +244,8 @@ class Sat_model:
         solutions[-1] = (solutions[-1][0], timeout > current_time)
         return solutions
         
-
-model = Sat_model()
-model.add_instance(Instance('instances/inst07.dat'))
-print("created")
-print(model.minimize())
+if __name__ == "if __name__ == ":
+    model = Sat_model()
+    model.add_instance(Instance('instances/inst06.dat'))
+    print("created")
+    print(model.minimize())
