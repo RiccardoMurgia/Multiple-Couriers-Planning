@@ -16,7 +16,7 @@ class CpModel:
 
     def solve(self, timeout:'int'=300000, processes:'int' = 1) -> CpSolution:
         self.__instance.save_dzn('.cache/cp')
-        parameters = ['minizinc', '--solver', self.__solver, self.__model_path, f'.cache/cp/{self.__instance.name}.dzn', '-s', '-p', str(processes), '-i']
+        parameters = ['minizinc', '--solver', self.__solver, self.__model_path, f'.cache/cp/{self.__instance.name}.dzn', '-s', '-p', str(processes)]
         if timeout > 0:
            parameters += ['--time-limit', str(timeout)]
         solution = subprocess.run(parameters, stdout = subprocess.PIPE).stdout.decode('utf-8')

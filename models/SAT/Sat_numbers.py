@@ -1,4 +1,5 @@
-from z3 import Bool, Not, And, Or, Xor, Solver, sat
+from itertools import combinations
+from z3 import Bool, Not, And, Or, Xor, Implies, Solver, sat
 from z3.z3 import BoolRef
 import numpy as np
 import uuid
@@ -101,8 +102,8 @@ class SatInteger:
         max_length = max(self.binary_length, other.binary_length)
 
         constraints = [
-            iff(self.get(self.binary_length - i),
-                other.get(other.binary_length - i))
+            self.get(self.binary_length - i) ==
+                other.get(other.binary_length - i)
             for i in range(1, min_length+1)]
         if min_length == max_length:
             return constraints
@@ -148,7 +149,7 @@ class SatInteger:
         return self.name + " " + str(self.__representation)
 
     def add_is_not_zero(self):
-        return And([b == False for b in self.all()])
+        return Or([b == True for b in self.all()])
 
     def add_is_zero(self):
         return Not(Or(self.all()))
@@ -215,7 +216,7 @@ class SatInteger:
         operations = []
         for n in not_boolean.all():
             new_n = Bool(str(uuid.uuid4()))
-            operations.append(iff(And(n, boolean), new_n))
+            operations.append(And(n, boolean) == new_n)
             new_num.append(new_n)
         operations = operations + not_boolean_operations + boolean_operations
         return SatInteger(binary=new_num,
@@ -250,6 +251,50 @@ def variable(variable_type:'str' = "bool", variable_length:'int' = 1, variable_n
         return SatInteger(binary=[Bool(f"{variable_name}_{i}") for i in range(variable_length)])
     raise Exception(f"unknown variable type {variable_type}") 
 
+amo = lambda x: And([Not(And(pair[0], pair[1])) for pair in combinations(x,2)])
+
+
+def at_most_one(bool_vars):
+    if len(bool_vars) < 5:
+        return amo(bool_vars)
+
+    y = Bool(str(uuid.uuid4()))
+    return And(
+        And(amo(bool_vars[:3] + [y])),
+        at_most_one(bool_vars[3:] + [Not(y)])
+    )
+
+def at_least_one(bool_vars):
+    return Or(bool_vars)
+
+def exactly_one(bool_vars):
+    return And(at_least_one(bool_vars), at_most_one(bool_vars))
+
+def at_most_k(bool_vars, k):
+    n = len(bool_vars)
+    s = np.empty(shape=(k,n-1), dtype=object)
+    for i in range(s.shape[0]):
+        for j in range(s.shape[1]):
+            s[i,j] = Bool(str(uuid.uuid4()))
+    constraints = [Or(Not(bool_vars[0]), s[0,0])] + \
+        [Not(s[0,j]) for j in range(1,k)]
+    for i in range(1, n-1):
+        constraints.append(Or(Not(bool_vars[i]), s[i,0]))
+        constraints.append(Implies(s[i-1,0], s[i,0]))
+        constraints.append(Implies(bool_vars[i], Not(s[i-1,k-1])))
+        for j in range(i,k):
+            constraints.append(Or(Not(bool_vars[i]), Not(s[i-1,j-1]), s[i,j]))
+            constraints.append(Implies(s[i-1,j], s[i,j]))
+    constraints.append(Implies(bool_vars[n-1], Not(s[n-2,k-1])))
+    return And(constraints)
+
+def at_least_k(bool_vars,k):
+    if k == 1:
+        return at_most_one(bool_vars)
+    return at_most_k([Not(b) for b in bool_vars], len(bool_vars) - k)
+
+def exactly_k(bool_vars,k):
+    return And(at_least_k(bool_vars,k), at_most_k(bool_vars,k))
 
 def usage():
     s = Solver()

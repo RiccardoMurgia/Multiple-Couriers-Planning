@@ -30,7 +30,7 @@ class CpSolution:
             self.all_statistics = []
             self.solutions = None
             self.last_solution = None
-
+            print(solution_str)
             print('error')
         #self.parse_flat_statistics(second_split[0])
     

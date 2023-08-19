@@ -147,7 +147,7 @@ class Sat_model:
             for i in range(n+1):
                 for k in range(n+1):
                     d = SatInteger(distance_matrix[i,k]) * courier_route[j,i,k]
-                    distances[j] += d * courier_route[j,i,k]
+                    distances[j] += d 
             s.add(distances[j].get_constraints())
             s.add(loads[j].get_constraints())
             s.add(max_load[j].add_geq(loads[j]))
@@ -244,7 +244,7 @@ class Sat_model:
         solutions[-1] = (solutions[-1][0], timeout > current_time)
         return solutions
         
-if __name__ == "if __name__ == ":
+if __name__ == "__main__":
     model = Sat_model()
     model.add_instance(Instance('instances/inst06.dat'))
     print("created")
