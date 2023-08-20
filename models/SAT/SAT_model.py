@@ -2,7 +2,7 @@ from z3 import And, Or, Not, Implies, sat, Solver
 from instance import Instance
 import numpy as np
 from itertools import combinations
-from models.SAT.Sat_numbers import SatInteger, variable
+from models.SAT.Sat_utils import SatInteger, variable
 
 from time import time
 

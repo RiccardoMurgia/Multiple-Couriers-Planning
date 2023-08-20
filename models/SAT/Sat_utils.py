@@ -4,7 +4,6 @@ from z3.z3 import BoolRef
 import numpy as np
 import uuid
 
-
 class SatInteger:
     def __init__(self, decimal_number: 'int' = 0, name: 'str' = "number",
                  binary: 'list' = [], pre_operations: 'list' = []) -> None:
@@ -26,7 +25,7 @@ class SatInteger:
     def __get_length(self, number: 'int') -> int:
         return len(bin(number)[2:])
 
-    def __convert(self, number: 'int', length: 'int'):
+    def __convert(self, number: 'int', length: 'int') -> 'list[BoolRef]':
         num = []
         str_num = bin(number)[2:]
         for i in range(length):
@@ -36,9 +35,9 @@ class SatInteger:
                 self.__operations.append(ni == True)
             else:
                 self.__operations.append(ni == False)
-        return np.array(num)
+        return num
 
-    def get(self, index: 'int'):
+    def __getitem__(self, index: 'int'):
         return self.__representation[index]
 
     def all(self):
@@ -47,84 +46,114 @@ class SatInteger:
     def get_constraints(self) -> 'list':
         return self.__operations
 
+
     def add_greater(self, other):
-        min_length = min(self.binary_length, other.binary_length)
         max_length = max(self.binary_length, other.binary_length)
 
-        constraints = []
-        for i in range(1, min_length + 1):
-            constraint_i = [And(self.get(self.binary_length - i), Not(other.get(other.binary_length - i)))]
-            for k in range(i + 1, min_length + 1):
-                constraint_i.append(Or(
-                    And(Not(self.get(self.binary_length - k)), Not(other.get(other.binary_length - k))),
-                    self.get(self.binary_length - k)))
+        self.extend(max_length-self.binary_length)
+        other.extend(max_length-other.binary_length)
+        
 
-            constraints.append(And(constraint_i))
-        constraints = [Or(constraints)]
-        if min_length == self.binary_length:
+        constraints = []
+
+        
+        gts = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+        geqs = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+
+        constraints += [gts[0] == False, geqs[0] == True]
+        for i in range(1,max_length):
             constraints += [
-                Not(other.get(other.binary_length - i))
-                for i in range(min_length + 1, max_length + 1)
+                gts[i] == And(self[i], Not(other[i]), geqs[i-1]),
+                geqs[i] == And(self[i] == other[i], geqs[i-1]),
+                
             ]
-        if min_length == other.binary_length:
-            constraints += [
-                self.get(self.binary_length - i) for i in range(min_length + 1, max_length + 1)
-            ]
-            constraints = [Or(constraints)]
+
+        constraints.append(Or(gts))
         return constraints
 
     def add_less(self, other):
-        min_length = min(self.binary_length, other.binary_length)
         max_length = max(self.binary_length, other.binary_length)
+
+        self.extend(max_length-self.binary_length)
+        other.extend(max_length-other.binary_length)
+        
 
         constraints = []
-        for i in range(1, min_length + 1):
-            constraint_i = [And(Not(self.get(self.binary_length - i), other.get(other.binary_length - i)))]
-            for k in range(i + 1, min_length + 1):
-                constraint_i.append(Or(
-                    And(Not(self.get(self.binary_length - k)), Not(other.get(other.binary_length - k))),
-                    other.get(other.binary_length - k)))
-            constraints.append(And(constraint_i))
-        constraints = [Or(constraints)]
-        if max_length == self.binary_length:
-            constraints += [Not(self.get(self.binary_length - i))
-                            for i in range(min_length + 1, max_length + 1)
-                            ]
-        if max_length == other.binary_length:
+
+        
+        lts = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+        leqs = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+
+        constraints += [lts[0] == False, leqs[0] == True]
+        for i in range(1,max_length):
             constraints += [
-                other.get(other.binary_length - i) for i in range(min_length + 1, max_length + 1)
+                lts[i] == And(Not(self[i]), other[i], leqs[i-1]),
+                leqs[i] == And(self[i] == other[i], leqs[i-1]),
+                
             ]
-            constraints = [Or(constraints)]
+
+        constraints.append(Or(lts))
         return constraints
+
+
 
     def add_equal(self, other):
-        min_length = min(self.binary_length, other.binary_length)
         max_length = max(self.binary_length, other.binary_length)
-
-        constraints = [
-            self.get(self.binary_length - i) ==
-                other.get(other.binary_length - i)
-            for i in range(1, min_length+1)]
-        if min_length == max_length:
-            return constraints
-
-        longer = self
-        if self.binary_length == min_length:
-            longer = other
-
-        constraints += [
-            Not(longer.get(longer.binary_length - i))
-            for i in range(min_length+1, max_length+1)
+        self.extend(max_length - self.binary_length)
+        other.extend(max_length - other.binary_length)
+        return [
+            self[i] == other[i] for i in range(max_length)
         ]
-        return constraints
 
     def add_geq(self, other):
-        return [Or(And(self.add_greater(other)),
-                   And(self.add_equal(other)))]
+        max_length = max(self.binary_length, other.binary_length)
+
+        self.extend(max_length-self.binary_length)
+        other.extend(max_length-other.binary_length)
+        
+
+        constraints = []
+
+        
+        gts = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+        geqs = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+
+        constraints += [gts[0] == False, geqs[0] == True]
+        for i in range(1,max_length):
+            constraints += [
+                gts[i] == And(self[i], Not(other[i]), geqs[i-1]),
+                geqs[i] == And(self[i] == other[i], geqs[i-1]),
+                
+            ]
+
+        constraints.append(Or(gts + [And(geqs)]))
+        return constraints
+        
 
     def add_leq(self, other):
-        return [Or(And(self.add_less(other)),
-                   And(self.add_equal(other)))]
+        max_length = max(self.binary_length, other.binary_length)
+
+        self.extend(max_length-self.binary_length)
+        other.extend(max_length-other.binary_length)
+        
+
+        constraints = []
+
+        
+        lts = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+        leqs = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+
+        constraints += [lts[0] == False, leqs[0] == True]
+        for i in range(1,max_length):
+            constraints += [
+                lts[i] == And(Not(self[i]), other[i], leqs[i-1]),
+                leqs[i] == And(self[i] == other[i], leqs[i-1]),
+                
+            ]
+
+        constraints.append(Or(lts + [And(leqs)]))
+        return constraints
+
 
     def to_decimal(self, model):
         num_list = []
@@ -138,7 +167,7 @@ class SatInteger:
     def __get_value(self, i, model):
         value = False
         try:
-            value = bool(model.evaluate(self.get(i)))
+            value = bool(model.evaluate(self[i]))
         except:
             pass
         if value:
@@ -148,10 +177,16 @@ class SatInteger:
     def __str__(self):
         return self.name + " " + str(self.__representation)
 
-    def add_is_not_zero(self):
-        return Or([b == True for b in self.all()])
+    def is_not_zero(self):
+        return Or(self.all())
 
-    def add_is_zero(self):
+    def extend(self, n:'int'):
+        extra = [Bool(str(uuid.uuid4())) for _ in range(n)]
+        self.__operations.append(Not(Or(extra)))
+        self.__representation = extra + self.__representation
+        self.binary_length = len(self.__representation)
+
+    def is_zero(self):
         return Not(Or(self.all()))
 
     def set_to(self, number:'int', keep_constraint:'bool' = False):
@@ -175,19 +210,19 @@ class SatInteger:
 
         new_num = []
         num = Bool(str(uuid.uuid4()))
-        operations.append(Xor(max_len_num.get(max_l - 1),
-                                  min_len_num.get(min_l - 1)) == num)
-        carry = And(max_len_num.get(max_l - 1),
-                                  min_len_num.get(min_l - 1))
+        operations.append(Xor(max_len_num[max_l - 1],
+                                  min_len_num[min_l - 1]) == num)
+        carry = And(max_len_num[max_l - 1],
+                                  min_len_num[min_l - 1])
         new_num.append(num)
         for i in range(2, min_length + 1):
-            formula = Xor(max_len_num.get(max_l - i),
-                          min_len_num.get(min_l - i))
+            formula = Xor(max_len_num[max_l - i],
+                          min_len_num[min_l - i])
             final_num = Bool(str(uuid.uuid4()))
             operations.append(Xor(formula, carry) == final_num)
             carry = Or(And(formula, carry),
-                                     And(max_len_num.get(max_l - i),
-                                         min_len_num.get(min_l - i)))
+                                     And(max_len_num[max_l - i],
+                                         min_len_num[min_l - i]))
             new_num.append(final_num)
 
         if min_length != max_length:
@@ -195,9 +230,9 @@ class SatInteger:
             for i in range(min_length+1, max_length+1):
                 current_num = Bool(str(uuid.uuid4()))
                 operations.append(
-                    Xor(max_len_num.get(max_l - i), carry) == current_num)
+                    Xor(max_len_num[max_l - i], carry) == current_num)
 
-                carry = And(max_len_num.get(max_l - i), carry)
+                carry = And(max_len_num[max_l - i], carry)
                 new_num.append(current_num)
 
         final_num = Bool(str(uuid.uuid4()))
@@ -230,19 +265,13 @@ class SatInteger:
             return second, first, second.get_constraints(), []
         if isinstance(first, SatInteger) and isinstance(second, SatInteger):
             if second.is_bool:
-                return first, second.get(0), first.get_constraints(), second.get_constraints()
+                return first, second[0], first.get_constraints(), second.get_constraints()
             if first.is_bool:
-                return second, first.get(0), second.get_constraints(), first.get_constraints()
+                return second, first[0], second.get_constraints(), first.get_constraints()
         
         raise Exception("Error: implelemented mul only between Integer and booleans")
 
     __rmul__ = __mul__
-
-def iff(left, right):
-    return Or(
-        And(left, right),
-        And(Not(left), Not(right))
-    )
 
 def variable(variable_type:'str' = "bool", variable_length:'int' = 1, variable_name:'str'="name"):
     if variable_type == "bool":
@@ -290,11 +319,13 @@ def at_most_k(bool_vars, k):
 
 def at_least_k(bool_vars,k):
     if k == 1:
-        return at_most_one(bool_vars)
+        return at_least_one(bool_vars)
     return at_most_k([Not(b) for b in bool_vars], len(bool_vars) - k)
 
 def exactly_k(bool_vars,k):
     return And(at_least_k(bool_vars,k), at_most_k(bool_vars,k))
+
+
 
 def usage():
     s = Solver()
@@ -324,10 +355,11 @@ def usage():
     _4 = SatInteger(4, "4")
     s.add(_2.get_constraints())
     s.add(_4.get_constraints())
-    _six = SatInteger(binary=[Bool("six1"), Bool("six2"), Bool("six3"), Bool("six4"), Bool("six5")])
-    s.add(_six.get_constraints())
-    s.add(six.add_geq(_six))
+    _six = SatInteger(binary=[Bool("six1"), Bool("six2"), Bool("six3"), Bool("six4"), Bool("six5")], name="_six")
     s.add(six.add_leq(_six))
+    s.add(six.add_geq(_six))
+    # s.add(six.add_equal(_six))
+    s.add(_six.get_constraints())
     # s.add(_24.add_less(_18))
     _1234 = SatInteger(1234, "1234")
     _5678 = SatInteger(5678, "5678")
@@ -370,6 +402,7 @@ def usage():
         print("r",
               [m.evaluate(v) for v in r.all()], r.to_decimal(m))
         print("a", a.to_decimal(m))
+
 
 
 if __name__ == "__main__":
