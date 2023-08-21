@@ -332,10 +332,7 @@ def exactly_one(bool_vars):
 
 def at_most_k(bool_vars, k):
     n = len(bool_vars)
-    s = np.empty(shape=(k,n-1), dtype=object)
-    for i in range(s.shape[0]):
-        for j in range(s.shape[1]):
-            s[i,j] = Bool(str(uuid.uuid4()))
+    s = np.array([[Bool(str(uuid.uuid4())) for j in range(k)] for i in range(n - 1)])
     constraints = [Or(Not(bool_vars[0]), s[0,0])] + \
         [Not(s[0,j]) for j in range(1,k)]
     for i in range(1, n-1):

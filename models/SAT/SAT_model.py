@@ -1,8 +1,7 @@
-from z3 import And, Or, Not, Implies, sat, Solver
+from z3 import Bool, And, Or, Not, Implies, sat, Solver
 from instance import Instance
 import numpy as np
-from itertools import combinations
-from models.SAT.Sat_utils import SatInteger, variable
+from models.SAT.Sat_utils import SatInteger, at_least_k, variable, exactly_one, SatSequences
 
 from time import time
 
@@ -17,20 +16,6 @@ def flatten(e):
 class Sat_model:
 
     @staticmethod
-    def __at_least_one(bool_vars: 'list'):
-        return Or(bool_vars)
-
-    @staticmethod
-    def __at_most_one(bool_vars: 'list'):
-        return [
-            Not(And(pair[0], pair[1])) for pair in combinations(bool_vars, 2)
-        ]
-
-    @staticmethod
-    def __exactly_one(bool_vars: 'list'):
-        return Sat_model.__at_most_one(bool_vars) + [Sat_model.__at_least_one(bool_vars)]
-
-    @staticmethod
     def __buil_variables(_min_path, _max_path, _max_load, _size, _m, _n, _max_path_length, _s):
 
         min_path = SatInteger(_min_path)
@@ -43,8 +28,6 @@ class Sat_model:
         loads = []
         courier_route = np.empty(shape=(_m, _n+1, _n+1), dtype=object)
         times = np.empty(shape=(_m, _n+1), dtype=object)
-
-        max_len = SatInteger(_max_path_length).binary_length
         
         for j in range(_m):
             ml = SatInteger(_max_load[j])
@@ -54,11 +37,9 @@ class Sat_model:
             loads.append(SatInteger(0, "zero"))
             for i in range(_n+1):
                 for k in range(_n+1):
-                    courier_route[j,i,k] = variable(variable_type="bool", variable_name=f"courier_{j}_goes_from_{i}_to_{k}")
-                times[j,i] = variable(
-                    variable_type="int", 
-                    variable_length=max_len, 
-                    variable_name=f"time_{j}_{i}")
+                    courier_route[j,i,k] = Bool(f"courier_{j}_goes_from_{i}_to_{k}")
+                times[j,i] = SatSequences(_max_path_length - 1)
+                _s.add(times[j,i].add())
 
         for size in sizes:
             _s.add(size.get_constraints())
@@ -68,8 +49,8 @@ class Sat_model:
     @staticmethod
     def __go_everywhere_once(s, n, courier_route):
         for i in range(n):
-            s.add(Sat_model.__exactly_one(flatten(courier_route[:,i,:].tolist())))
-            s.add(Sat_model.__exactly_one(flatten(courier_route[:,:,i].tolist())))
+            s.add(exactly_one(flatten(courier_route[:,i,:].tolist())))
+            s.add(exactly_one(flatten(courier_route[:,:,i].tolist())))
         
     @staticmethod
     def __compute_max_distance(s, distances, min_path, max_path, m):
@@ -77,7 +58,6 @@ class Sat_model:
         max_len = max(distances, key= lambda d: d.binary_length).binary_length
         
         max_distance = variable(
-            variable_type="int", 
             variable_length= max_len, 
             variable_name="max_distance")
         
@@ -106,26 +86,27 @@ class Sat_model:
         origin_index = origin - 1
         
         for j in range(m):
-            # every courier has at least a package
-            s.add(self.__at_least_one(flatten(courier_route[j,:,:n].tolist())))
-
+            # # every courier has at least a package
+            s.add(at_least_k(flatten(courier_route[j,:,:n].tolist()),k=self.instance.min_packs))
+            
             # each courier start and ends at the origin
-            s.add(self.__exactly_one(flatten(courier_route[j, origin_index, :origin_index].tolist())))
-            s.add(self.__exactly_one(flatten(courier_route[j, :origin_index, origin_index].tolist())))
+            s.add(exactly_one(flatten(courier_route[j, origin_index, :origin_index].tolist())))
+            s.add(exactly_one(flatten(courier_route[j, :origin_index, origin_index].tolist())))
             s.add(courier_route[j, origin_index, origin_index] == False)
-
+            
             for i in range(n):
-                
+                 
                 j_at_i = courier_route[j, i, :].tolist()
-
+            
                 # if a courier goes at position i, it does not stop there
                 s.add(
                     Or(j_at_i) ==
                     Or(courier_route[j, :, i].tolist()
                 ))
 
+                if self.instance.size[i] <= self.instance.max_load[j]:
                 # add size of pack i to load of courier j if it brings that package
-                loads[j] += sizes[i] * Or(j_at_i)
+                    loads[j] += sizes[i] * Or(j_at_i)
 
                 for k in range(n):
                     # do not go to i from k if we've already been at i
@@ -135,19 +116,19 @@ class Sat_model:
                     if i != k:
                         s.add(Implies(
                             courier_route[j, i, k], 
-                            And(times[j, k].add_greater(times[j, i]))
+                            And(times[j, k].next(times[j, i]))
                         ))
                 
-                # if courier j does not pass from i, the related time is 0
-                s.add(Implies(Not(Or(j_at_i)), times[j,i].add_is_zero()))
                 # courier j do not stay at i 
                 s.add(courier_route[j,i,i] == False)
             
+
             #compute distance for courier j
             for i in range(n+1):
                 for k in range(n+1):
-                    d = SatInteger(distance_matrix[i,k]) * courier_route[j,i,k]
-                    distances[j] += d 
+                    if i != k:
+                        d = SatInteger(distance_matrix[i,k]) * courier_route[j,i,k]
+                        distances[j] += d           
             s.add(distances[j].get_constraints())
             s.add(loads[j].get_constraints())
             s.add(max_load[j].add_geq(loads[j]))
@@ -221,12 +202,13 @@ class Sat_model:
 
         self.__solution = solution
 
-    def minimize(self, processes=8, timeout=300000):
+    def minimize(self, processes=4, timeout=300000):
         start = time()
         self.s.set("threads", processes)
         self.s.set("timeout",timeout)
 
         if self.s.check() != sat:
+            print(self.s.check())
             return []
 
         solutions = []
@@ -237,6 +219,7 @@ class Sat_model:
             solutions.append((sol, sol["max_distance"] == self.instance.min_path))
             current_time = int(time()-start)
             self.s.set("timeout", timeout - current_time)
+            print(sol)
             if sol["max_distance"] == self.instance.min_path:
                 break
             self.s = self.__update_max_distance(self.s,sol["max_distance"], self.__solution["max_distance"])
@@ -246,6 +229,6 @@ class Sat_model:
         
 if __name__ == "__main__":
     model = Sat_model()
-    model.add_instance(Instance('instances/inst06.dat'))
+    model.add_instance(Instance('instances/inst08.dat'))
     print("created")
     print(model.minimize())
