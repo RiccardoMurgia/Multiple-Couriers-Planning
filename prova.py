@@ -1,7 +1,7 @@
 from z3 import And, Or, Not, Implies, sat, Solver
 from instance import Instance
 import numpy as np
-from models.SAT.Sat_utils import SatInteger, at_least_k, variable, exactly_one
+from models.SAT.Sat_utils import SatInteger, at_least_k, variable, exactly_one, SatSequences
 
 from time import time
 
@@ -28,8 +28,6 @@ class Sat_model:
         loads = []
         courier_route = np.empty(shape=(_m, _n+1, _n+1), dtype=object)
         times = np.empty(shape=(_m, _n+1), dtype=object)
-
-        max_len = SatInteger(_max_path_length).binary_length
         
         for j in range(_m):
             ml = SatInteger(_max_load[j])
@@ -40,10 +38,8 @@ class Sat_model:
             for i in range(_n+1):
                 for k in range(_n+1):
                     courier_route[j,i,k] = variable(variable_type="bool", variable_name=f"courier_{j}_goes_from_{i}_to_{k}")
-                times[j,i] = variable(
-                    variable_type="int", 
-                    variable_length=max_len, 
-                    variable_name=f"time_{j}_{i}")
+                times[j,i] = SatSequences(_max_path_length - 1)
+                _s.add(times[j,i].add())
 
         for size in sizes:
             _s.add(size.get_constraints())
@@ -62,7 +58,6 @@ class Sat_model:
         max_len = max(distances, key= lambda d: d.binary_length).binary_length
         
         max_distance = variable(
-            variable_type="int", 
             variable_length= max_len, 
             variable_name="max_distance")
         
@@ -108,8 +103,10 @@ class Sat_model:
                     Or(j_at_i) ==
                     Or(courier_route[j, :, i].tolist()
                 ))
+
+                if self.instance.size[i] <= self.instance.max_load[j]:
                 # add size of pack i to load of courier j if it brings that package
-                loads[j] += sizes[i] * Or(j_at_i)
+                    loads[j] += sizes[i] * Or(j_at_i)
 
                 for k in range(n):
                     # do not go to i from k if we've already been at i
@@ -119,19 +116,19 @@ class Sat_model:
                     if i != k:
                         s.add(Implies(
                             courier_route[j, i, k], 
-                            And(times[j, k].add_greater(times[j, i]))
+                            And(times[j, k].next(times[j, i]))
                         ))
                 
                 # courier j do not stay at i 
-                # s.add(Implies(Not(Or(j_at_i)), times[j,i].is_zero()))
                 s.add(courier_route[j,i,i] == False)
             
 
             #compute distance for courier j
             for i in range(n+1):
                 for k in range(n+1):
-                    d = SatInteger(distance_matrix[i,k]) * courier_route[j,i,k]
-                    distances[j] += d           
+                    if i != k:
+                        d = SatInteger(distance_matrix[i,k]) * courier_route[j,i,k]
+                        distances[j] += d           
             s.add(distances[j].get_constraints())
             s.add(loads[j].get_constraints())
             s.add(max_load[j].add_geq(loads[j]))

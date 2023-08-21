@@ -57,14 +57,14 @@ class SatInteger:
         constraints = []
 
         
-        gts = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
-        geqs = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+        gts = [Bool(str(uuid.uuid4())) for _ in range(max_length + 1)]
+        geqs = [Bool(str(uuid.uuid4())) for _ in range(max_length + 1)]
 
         constraints += [gts[0] == False, geqs[0] == True]
-        for i in range(1,max_length):
+        for i in range(0,max_length):
             constraints += [
-                gts[i] == And(self[i], Not(other[i]), geqs[i-1]),
-                geqs[i] == And(self[i] == other[i], geqs[i-1]),
+                gts[i + 1] == And(self[i], Not(other[i]), geqs[i]),
+                geqs[i + 1] == And(self[i] == other[i], geqs[i]),
                 
             ]
 
@@ -81,14 +81,14 @@ class SatInteger:
         constraints = []
 
         
-        lts = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
-        leqs = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+        lts = [Bool(str(uuid.uuid4())) for _ in range(max_length + 1)]
+        leqs = [Bool(str(uuid.uuid4())) for _ in range(max_length + 1)]
 
         constraints += [lts[0] == False, leqs[0] == True]
-        for i in range(1,max_length):
+        for i in range(0,max_length):
             constraints += [
-                lts[i] == And(Not(self[i]), other[i], leqs[i-1]),
-                leqs[i] == And(self[i] == other[i], leqs[i-1]),
+                lts[i + 1] == And(Not(self[i]), other[i], leqs[i]),
+                leqs[i + 1] == And(self[i] == other[i], leqs[i]),
                 
             ]
 
@@ -115,14 +115,14 @@ class SatInteger:
         constraints = []
 
         
-        gts = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
-        geqs = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+        gts = [Bool(str(uuid.uuid4())) for _ in range(max_length + 1)]
+        geqs = [Bool(str(uuid.uuid4())) for _ in range(max_length + 1)]
 
         constraints += [gts[0] == False, geqs[0] == True]
-        for i in range(1,max_length):
+        for i in range(0,max_length):
             constraints += [
-                gts[i] == And(self[i], Not(other[i]), geqs[i-1]),
-                geqs[i] == And(self[i] == other[i], geqs[i-1]),
+                gts[i + 1] == And(self[i], Not(other[i]), geqs[i]),
+                geqs[i + 1] == And(self[i] == other[i], geqs[i]),
                 
             ]
 
@@ -140,14 +140,14 @@ class SatInteger:
         constraints = []
 
         
-        lts = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
-        leqs = [Bool(str(uuid.uuid4())) for _ in range(max_length)]
+        lts = [Bool(str(uuid.uuid4())) for _ in range(max_length + 1)]
+        leqs = [Bool(str(uuid.uuid4())) for _ in range(max_length + 1)]
 
         constraints += [lts[0] == False, leqs[0] == True]
-        for i in range(1,max_length):
+        for i in range(0,max_length):
             constraints += [
-                lts[i] == And(Not(self[i]), other[i], leqs[i-1]),
-                leqs[i] == And(self[i] == other[i], leqs[i-1]),
+                lts[i + 1] == And(Not(self[i]), other[i], leqs[i]),
+                leqs[i + 1] == And(self[i] == other[i], leqs[i]),
                 
             ]
 
@@ -273,12 +273,43 @@ class SatInteger:
 
     __rmul__ = __mul__
 
-def variable(variable_type:'str' = "bool", variable_length:'int' = 1, variable_name:'str'="name"):
-    if variable_type == "bool":
-        return Bool(variable_name)
-    if variable_type == "int":
-        return SatInteger(binary=[Bool(f"{variable_name}_{i}") for i in range(variable_length)])
-    raise Exception(f"unknown variable type {variable_type}") 
+class SatSequences:
+    def __init__(self, length):
+        self.__sequence = [Bool(str(uuid.uuid4())) for _ in range(length)]
+        self.length = length
+        self.is_zero = Bool(str(uuid.uuid4()))
+    
+
+    def add(self):
+        return self.is_zero == Not(Or(self.__sequence))
+
+    def __getitem__(self,index):
+        return self.__sequence[index]
+
+    def next(self, other:'SatSequences'):
+        constraints = [exactly_one(self.__sequence)]
+
+        for i in range(1,self.length):
+            constraints.append(
+                self[i] == other[i-1]
+            )
+
+        constraints.append(Implies(other.is_zero,self[0]))
+        return constraints
+
+    def to_decimal(self,model):
+        for i in range(self.length):
+            try:
+                value = model.evaluate(self[i])
+                if value: 
+                    return i + 1
+            except:
+                pass
+        return 0
+
+
+def variable(variable_length:'int' = 1, variable_name:'str'="name")->'SatInteger':
+    return SatInteger(binary=[Bool(f"{variable_name}_{i}") for i in range(variable_length)])
 
 amo = lambda x: And([Not(And(pair[0], pair[1])) for pair in combinations(x,2)])
 
@@ -376,6 +407,17 @@ def usage():
     op = _4 * k
     a += op
     s.add(a.get_constraints())
+    seq1 = SatSequences(5)
+    seq2 = SatSequences(5)
+    seq3 = SatSequences(5)
+    seq4 = SatSequences(5)
+    s.add(seq1.add())
+    s.add(seq2.add())
+    s.add(seq3.add())
+    s.add(seq4.add())
+    s.add(seq2.next(seq1))
+    s.add(seq3.next(seq2))
+    s.add(seq4.next(seq3))
     print(s.check())
     if s.check() == sat:
         m = s.model()
@@ -402,6 +444,10 @@ def usage():
         print("r",
               [m.evaluate(v) for v in r.all()], r.to_decimal(m))
         print("a", a.to_decimal(m))
+        print("seq1", seq1.to_decimal(m), m.evaluate(seq1.is_zero), [m.evaluate(seq1[i]) for i in range(5)])
+        print("seq2", seq2.to_decimal(m), m.evaluate(seq2.is_zero), [m.evaluate(seq2[i]) for i in range(5)])
+        print("seq3", seq3.to_decimal(m), m.evaluate(seq3.is_zero), [m.evaluate(seq3[i]) for i in range(5)])
+        print("seq4", seq4.to_decimal(m), m.evaluate(seq4.is_zero), [m.evaluate(seq4[i]) for i in range(5)])
 
 
 
