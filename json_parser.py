@@ -3,7 +3,7 @@ import os
 
 
 class Json_parser:
-    def __init__(self, result_directory_path: 'str' = 'res'):
+    def __init__(self, result_directory_path: 'str' = 'results'):
 
         self.result_directory_path = result_directory_path
         self.approach_folders = {
