@@ -107,5 +107,5 @@ min_packs = {self.min_packs};
         path = "."
         if not file_path is None:
             path = file_path
-        file = open(f"{path}/{name}.dzn", "w")
+        file = open(f"{path}/{name}.dzn", "x")
         file.write(instance)

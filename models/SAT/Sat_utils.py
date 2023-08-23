@@ -309,7 +309,7 @@ class SatSequences:
 
 
 def variable(variable_length:'int' = 1, variable_name:'str'="name")->'SatInteger':
-    return SatInteger(binary=[Bool(f"{variable_name}_{i}") for i in range(variable_length)])
+    return SatInteger(binary=[Bool(str(uuid.uuid4())) for i in range(variable_length)])
 
 amo = lambda x: And([Not(And(pair[0], pair[1])) for pair in combinations(x,2)])
 
@@ -359,6 +359,13 @@ def usage():
     s = Solver()
     seven = SatInteger(7, "seven")
     three = SatInteger(3, "three")
+    
+    fifteen = SatInteger(15, "q")
+    sixteen = SatInteger(16, "s")
+    s.add(fifteen.get_constraints())
+    s.add(sixteen.get_constraints())
+    s.add(sixteen.add_greater(fifteen))
+    
     six = SatInteger(6, "six")
     ten = seven + three
     one = SatInteger(1, "one")

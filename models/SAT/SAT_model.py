@@ -64,7 +64,12 @@ class Sat_model:
         s.add(Or([And(distances[j].add_equal(max_distance)) for j in range(m)]))
         s.add(And([And(max_distance.add_geq(distances[j])) for j in range(m)]))
         s.add(min_path.add_leq(max_distance))
+        s.add(min_path.get_constraints())
+        s.add(max_distance.get_constraints())
+        s.push()
         s.add(max_path.add_geq(max_distance))
+        s.add(max_path.get_constraints())
+        s.add(max_distance.get_constraints())
 
         return max_distance
 
@@ -135,13 +140,16 @@ class Sat_model:
         
         max_distance = Sat_model.__compute_max_distance(s, distances, min_path, max_path, m)
 
-        return s, times, courier_route, loads, distances, max_load, max_distance
+        return s, times, courier_route, loads, distances, max_load, max_distance, max_path
 
     def __update_max_distance(self, s, max_distance_n, max_distance):
-        new_min_path = SatInteger(max_distance_n, "new_min_path")
-        s.add(new_min_path.get_constraints())
+        new_min_path = SatInteger(max_distance_n)
+        s.pop()
+        s.push()
         s.add(new_min_path.add_greater(max_distance))
-        return s
+        s.add(new_min_path.get_constraints())
+        s.add(max_distance.get_constraints())
+        self.__solution["upperlimit"] = new_min_path
 
     def __get_route(self, route_matrix, model, start, end):
         pairs = [(i+1,j+1) for i in range(route_matrix.shape[0]) for j in range(route_matrix.shape[1]) if model.evaluate(route_matrix[i,j])]
@@ -165,12 +173,13 @@ class Sat_model:
         sol["load"] = []
         sol["distance"] = []
         sol["max_distance"] = solution["max_distance"].to_decimal(m)
+        sol["upperlimit"] = solution["upperlimit"].to_decimal(m)
         for j in range(self.instance.m):
             sol["times"].append([t.to_decimal(m) for t in solution["times"][j,:]])
             sol["route"].append(self.__get_route(solution["courier_route"][j,:,:], m, self.instance.n + 1, self.instance.n + 1))
             sol["load"].append(solution["loads"][j].to_decimal(m))
             sol["distance"].append(solution["distances"][j].to_decimal(m))
-        return sol
+        return sol, m
 
     def add_instance(self, instance:'Instance', build:'bool' = True) -> None:
         self.instance = instance
@@ -179,7 +188,7 @@ class Sat_model:
             self.build()
 
     def build(self):
-        s, times, courier_route, loads, distances, max_load, max_distance = \
+        s, times, courier_route, loads, distances, max_load, max_distance, max_path = \
             self.__build_base_model(self.instance.min_path,
             self.instance.max_path,
             self.instance.max_load,
@@ -199,6 +208,7 @@ class Sat_model:
         solution["distances"] = distances
         solution["max_load"] = max_load
         solution["max_distance"] = max_distance
+        solution["upperlimit"] = max_path
 
         self.__solution = solution
 
@@ -225,6 +235,45 @@ class Sat_model:
             self.s = self.__update_max_distance(self.s,sol["max_distance"], self.__solution["max_distance"])
 
         solutions[-1] = (solutions[-1][0], timeout > current_time)
+        return solutions
+    
+    def split_search(self, processes=8, timeout=300000):
+        start = time()
+        self.s.set("threads", processes)
+        self.s.set("timeout",timeout)
+
+        if self.s.check() != sat:
+            return []
+        
+        min_distance = self.instance.min_path
+        solutions = []
+        current_time = 0
+        cond = 0
+        old_max = 0
+        while cond != 2:
+            current_time = int(time()-start)
+            if self.s.check() == sat:
+                sol, m = self.__convert_solution(self.__solution)
+                solutions.append((sol, sol["max_distance"] == self.instance.min_path))
+                if sol["max_distance"] == self.instance.min_path:
+                    break
+                cond = 0
+                old_max = sol["max_distance"]
+                new_max = (sol["max_distance"] - min_distance)//2 + min_distance
+                upperlimit = sol["upperlimit"]
+                self.__update_max_distance(self.s,new_max, self.__solution["max_distance"])
+                print("Success")
+                print("Solution: ", old_max, "With upper limit: ", upperlimit, "Now tryin with New Max: ", new_max, " and New Min: ", min_distance)
+            else:  
+                cond += 1
+                min_distance = (old_max - min_distance)//2 + min_distance
+                upperlimit = sol["upperlimit"]
+                self.__update_max_distance(self.s,old_max, self.__solution["max_distance"])
+                print("Fail")
+                print("Solution: ", old_max, "With upper limit: ", upperlimit, "Now tryin with New Max: ", old_max, " and New Min: ", min_distance)
+
+        solutions[-1] = (solutions[-1][0], timeout > current_time)
+        print("Max distance: ", solutions[-1][0]["max_distance"])
         return solutions
         
 if __name__ == "__main__":
