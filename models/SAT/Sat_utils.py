@@ -1,6 +1,7 @@
 from itertools import combinations
 from z3 import Bool, Not, And, Or, Xor, Implies, Solver, sat
 from z3.z3 import BoolRef
+from math import ceil, log2
 import numpy as np
 import uuid
 
@@ -313,16 +314,25 @@ def variable(variable_length:'int' = 1, variable_name:'str'="name")->'SatInteger
 
 amo = lambda x: And([Not(And(pair[0], pair[1])) for pair in combinations(x,2)])
 
+def toBinary(num, length = None):
+    num_bin = bin(num).split("b")[-1]
+    if length:
+        return "0"*(length - len(num_bin)) + num_bin
+    return num_bin
 
 def at_most_one(bool_vars):
-    if len(bool_vars) < 5:
-        return amo(bool_vars)
-
-    y = Bool(str(uuid.uuid4()))
-    return And(
-        And(amo(bool_vars[:3] + [y])),
-        at_most_one(bool_vars[3:] + [Not(y)])
-    )
+    constraints = []
+    n = len(bool_vars)
+    m = ceil(log2(n))
+    r = [Bool(str(uuid.uuid4())) for i in range(m)]
+    binaries = [toBinary(i, m) for i in range(n)]
+    for i in range(n):
+        for j in range(m):
+            phi = Not(r[j])
+            if binaries[i][j] == "1":
+                phi = r[j]
+            constraints.append(Or(Not(bool_vars[i]), phi))        
+    return And(constraints)
 
 def at_least_one(bool_vars):
     return Or(bool_vars)
@@ -332,7 +342,7 @@ def exactly_one(bool_vars):
 
 def at_most_k(bool_vars, k):
     n = len(bool_vars)
-    s = np.array([[Bool(str(uuid.uuid4())) for j in range(k)] for i in range(n - 1)])
+    s = np.array([[Bool(str(uuid.uuid4())) for _ in range(k)] for _ in range(n - 1)])
     constraints = [Or(Not(bool_vars[0]), s[0,0])] + \
         [Not(s[0,j]) for j in range(1,k)]
     for i in range(1, n-1):

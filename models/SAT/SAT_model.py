@@ -15,6 +15,9 @@ def flatten(e):
 
 class Sat_model:
 
+    def __init__(self) -> None:
+        self.s = Solver()
+
     @staticmethod
     def __buil_variables(_min_path, _max_path, _max_load, _size, _m, _n, _max_path_length, _s):
 
@@ -73,9 +76,8 @@ class Sat_model:
 
         return max_distance
 
-    def __build_base_model(self, min_path, max_path, max_load, size, distance_matrix, m, n, origin, max_path_length):
-        s = Solver()
-        
+    @staticmethod
+    def __build_base_model(s, min_path, max_path, max_load, size, distance_matrix, m, n, origin, max_path_length, min_packs):
         min_path,\
         max_path, \
         max_load, \
@@ -92,7 +94,7 @@ class Sat_model:
         
         for j in range(m):
             # # every courier has at least a package
-            s.add(at_least_k(flatten(courier_route[j,:,:n].tolist()),k=self.instance.min_packs))
+            s.add(at_least_k(flatten(courier_route[j,:,:n].tolist()),k=min_packs))
             
             # each courier start and ends at the origin
             s.add(exactly_one(flatten(courier_route[j, origin_index, :origin_index].tolist())))
@@ -109,9 +111,8 @@ class Sat_model:
                     Or(courier_route[j, :, i].tolist()
                 ))
 
-                if self.instance.size[i] <= self.instance.max_load[j]:
                 # add size of pack i to load of courier j if it brings that package
-                    loads[j] += sizes[i] * Or(j_at_i)
+                loads[j] += sizes[i] * Or(j_at_i)
 
                 for k in range(n):
                     # do not go to i from k if we've already been at i
@@ -140,18 +141,19 @@ class Sat_model:
         
         max_distance = Sat_model.__compute_max_distance(s, distances, min_path, max_path, m)
 
-        return s, times, courier_route, loads, distances, max_load, max_distance, max_path
+        return times, courier_route, loads, distances, max_load, max_distance
 
-    def __update_max_distance(self, s, max_distance_n, max_distance):
+    @staticmethod
+    def __update_max_distance(s, max_distance_n, max_distance):
         new_min_path = SatInteger(max_distance_n)
         s.pop()
         s.push()
         s.add(new_min_path.add_greater(max_distance))
         s.add(new_min_path.get_constraints())
         s.add(max_distance.get_constraints())
-        self.__solution["upperlimit"] = new_min_path
 
-    def __get_route(self, route_matrix, model, start, end):
+    @staticmethod
+    def __get_route(route_matrix, model, start, end):
         pairs = [(i+1,j+1) for i in range(route_matrix.shape[0]) for j in range(route_matrix.shape[1]) if model.evaluate(route_matrix[i,j])]
         route = [start]
         current = start
@@ -165,21 +167,20 @@ class Sat_model:
             if current == end:
                 return route
 
-    def __convert_solution(self, solution):
-        m = self.s.model()
+    @staticmethod
+    def __convert_solution(solution, model,m, origin):
         sol = {}
         sol["times"] = []
         sol["route"] = []
         sol["load"] = []
         sol["distance"] = []
-        sol["max_distance"] = solution["max_distance"].to_decimal(m)
-        sol["upperlimit"] = solution["upperlimit"].to_decimal(m)
-        for j in range(self.instance.m):
-            sol["times"].append([t.to_decimal(m) for t in solution["times"][j,:]])
-            sol["route"].append(self.__get_route(solution["courier_route"][j,:,:], m, self.instance.n + 1, self.instance.n + 1))
-            sol["load"].append(solution["loads"][j].to_decimal(m))
-            sol["distance"].append(solution["distances"][j].to_decimal(m))
-        return sol, m
+        sol["max_distance"] = solution["max_distance"].to_decimal(model)
+        for j in range(m):
+            sol["times"].append([t.to_decimal(model) for t in solution["times"][j,:]])
+            sol["route"].append(Sat_model.__get_route(solution["courier_route"][j,:,:], model, origin, origin))
+            sol["load"].append(solution["loads"][j].to_decimal(model))
+            sol["distance"].append(solution["distances"][j].to_decimal(model))
+        return sol
 
     def add_instance(self, instance:'Instance', build:'bool' = True) -> None:
         self.instance = instance
@@ -188,8 +189,10 @@ class Sat_model:
             self.build()
 
     def build(self):
-        s, times, courier_route, loads, distances, max_load, max_distance, max_path = \
-            self.__build_base_model(self.instance.min_path,
+        times, courier_route, loads, distances, max_load, max_distance = \
+            Sat_model.__build_base_model(
+            self.s,
+            self.instance.min_path,
             self.instance.max_path,
             self.instance.max_load,
             self.instance.size,
@@ -198,9 +201,9 @@ class Sat_model:
             self.instance.n,
             self.instance.origin,
             self.instance.max_path_length,
+            self.instance.min_packs
             )
         
-        self.s = s
         solution = {}
         solution["times"] = times
         solution["courier_route"] = courier_route
@@ -208,7 +211,6 @@ class Sat_model:
         solution["distances"] = distances
         solution["max_load"] = max_load
         solution["max_distance"] = max_distance
-        solution["upperlimit"] = max_path
 
         self.__solution = solution
 
@@ -225,16 +227,15 @@ class Sat_model:
         current_time = 0
         while self.s.check() == sat:
 
-            sol = self.__convert_solution(self.__solution)
-            solutions.append((sol, sol["max_distance"] == self.instance.min_path))
+            sol = self.__convert_solution(self.__solution, self.s.model(), self.instance.m, self.instance.origin)
             current_time = int(time()-start)
-            self.s.set("timeout", timeout - current_time)
-            print(sol)
+            solutions.append({"solution":sol, "time":current_time})
+            self.s.set("timeout", timeout - (current_time * 1000))
+            print(sol["max_distance"])
             if sol["max_distance"] == self.instance.min_path:
                 break
-            self.s = self.__update_max_distance(self.s,sol["max_distance"], self.__solution["max_distance"])
+            self.__update_max_distance(self.s,sol["max_distance"], self.__solution["max_distance"])
 
-        solutions[-1] = (solutions[-1][0], timeout > current_time)
         return solutions
     
     def split_search(self, processes=8, timeout=300000):
@@ -253,27 +254,25 @@ class Sat_model:
         while cond != 2:
             current_time = int(time()-start)
             if self.s.check() == sat:
-                sol, m = self.__convert_solution(self.__solution)
-                solutions.append((sol, sol["max_distance"] == self.instance.min_path))
+                sol = self.__convert_solution(self.__solution, self.s.model(), self.instance.m, self.instance.origin)
+                solutions.append({"solution":sol, "time":current_time})
+                self.s.set("timeout", timeout - (current_time * 10000))
                 if sol["max_distance"] == self.instance.min_path:
                     break
                 cond = 0
                 old_max = sol["max_distance"]
                 new_max = (sol["max_distance"] - min_distance)//2 + min_distance
-                upperlimit = sol["upperlimit"]
                 self.__update_max_distance(self.s,new_max, self.__solution["max_distance"])
                 print("Success")
-                print("Solution: ", old_max, "With upper limit: ", upperlimit, "Now tryin with New Max: ", new_max, " and New Min: ", min_distance)
+                print("Solution: ", sol["max_distance"], "Now tryin with New Max: ", new_max, " and New Min: ", min_distance)
             else:  
                 cond += 1
                 min_distance = (old_max - min_distance)//2 + min_distance
-                upperlimit = sol["upperlimit"]
                 self.__update_max_distance(self.s,old_max, self.__solution["max_distance"])
                 print("Fail")
-                print("Solution: ", old_max, "With upper limit: ", upperlimit, "Now tryin with New Max: ", old_max, " and New Min: ", min_distance)
+                print("Solution: ", old_max, "Now tryin with New Max: ", old_max, " and New Min: ", min_distance)
 
-        solutions[-1] = (solutions[-1][0], timeout > current_time)
-        print("Max distance: ", solutions[-1][0]["max_distance"])
+        print("Max distance: ", solutions[-1]["solution"]["max_distance"])
         return solutions
         
 if __name__ == "__main__":
