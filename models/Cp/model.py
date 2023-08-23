@@ -14,7 +14,6 @@ class CpModel:
         self.__model_path = model_file_path
         self.model_name = model_file_path.split('/')[-1].replace('.mzn', '')
         self.__solver = None
-        self.__instance = None
 
     def add_instance(self, instance: 'Instance', solver: 'str' = 'Gecode') -> 'None':
         self.__instance = instance

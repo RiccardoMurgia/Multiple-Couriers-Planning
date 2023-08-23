@@ -1,5 +1,3 @@
-import json
-
 LAMBDA = 0.1
 
 
