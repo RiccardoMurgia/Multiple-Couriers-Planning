@@ -1,11 +1,7 @@
+from instance import *
+from models.Cp.solutions import CpSolution
 import json
 import re
-from typing import Dict, Any
-
-from instance import *
-from datetime import timedelta
-from pathlib import Path
-from models.Cp.solutions import CpSolution
 import subprocess
 
 
