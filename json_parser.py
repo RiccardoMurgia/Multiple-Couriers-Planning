@@ -13,7 +13,7 @@ class Json_parser:
             "smt": os.path.join(result_directory_path, "smt")
         }
 
-    def save_results(self, approach_name: 'str', instance_name, result)-> None:
+    def save_results(self, approach_name: 'str', instance_name: 'str', result: 'dict') -> None:
 
         if approach_name in self.approach_folders:
             if not os.path.exists(self.approach_folders[approach_name]):
