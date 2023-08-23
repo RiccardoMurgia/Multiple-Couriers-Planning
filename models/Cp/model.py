@@ -20,18 +20,6 @@ class CpModel:
         self.__instance = instance
         self.__solver = solver
 
-    """    
-    def solve(self, timeout: 'int' = 300000, processes: 'int' = 1) -> CpSolution:
-        self.__instance.save_dzn('.cache/cp')
-        parameters = ['minizinc', '--solver', self.__solver, self.__model_path, f'.cache/cp/{self.__instance.name}.dzn',
-                      '-s', '-p', str(processes), '-i']
-        if timeout > 0:
-            parameters += ['--time-limit', str(timeout)]
-        solution = subprocess.run(parameters, stdout=subprocess.PIPE).stdout.decode('utf-8')
-        subprocess.run(["rm", f'.cache/cp/{self.__instance.name}.dzn'])
-        return CpSolution(solution)
-    """
-
     def solve(self, timeout: 'int' = 300000, processes: 'int' = 1) -> CpSolution:
         self.__instance.save_dzn('.cache/cp')
         parameters = ['minizinc', '--solver', self.__solver, self.__model_path, f'.cache/cp/{self.__instance.name}.dzn',
@@ -50,7 +38,7 @@ class CpModel:
                 message_data = json.loads(line)
                 if message_data.get("type") == "solution":
                     output_section = message_data.get("output", {})
-                    solution = parse_the_solution(output_section['dzn'])
+                    solution = manage_the_solution(output_section['dzn'])
                     solutions.append(solution)
                 if message_data.get("type") == "statistics":
                     statistics.append(message_data)
@@ -64,14 +52,12 @@ class CpModel:
         info['statistics'] = statistics
         info['states'] = states
 
-        #info = json.dumps(info, indent=3)
-        #print((info))
-        #subprocess.run(["rm", f'.cache/cp/{self.__instance.name}.dzn'])
+        # subprocess.run(["rm", f'.cache/cp/{self.__instance.name}.dzn'])
 
         return CpSolution(info)
 
 
-def parse_the_solution(solution_str):
+def manage_the_solution(solution_str):
     pattern = r'(\w+)\s*=\s*((?:\[\|[\s\S]*?\|\])|(?:\[.*?\])|(?:\d+));'
     matches = re.findall(pattern, solution_str)
     parsed_data = {}
@@ -95,5 +81,9 @@ def parse_the_solution(solution_str):
                                     range(0, len(parsed_data['courier_route']), sublist_size)]
     parsed_data['courier_load'] = [parsed_data['courier_load'][i:i + sublist_size] for i in
                                    range(0, len(parsed_data['courier_load']), sublist_size)]
+
+    for sublist in parsed_data['courier_route']:
+        del sublist[0]  # Delete the first element
+        del sublist[-1]  # Delete the last element
 
     return parsed_data
