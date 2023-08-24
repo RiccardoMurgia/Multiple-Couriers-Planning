@@ -11,7 +11,6 @@ int: max_path; % lower bound
 array[1..n+1] of int: n_array;
 array[1..n+1] of int: count_array;
 int: max_path_length;
-int: number_of_origin_stops;
 int: origin;
 int: min_packs;
 
