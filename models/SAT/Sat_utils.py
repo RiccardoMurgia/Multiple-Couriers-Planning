@@ -5,6 +5,166 @@ from math import ceil, log2
 import numpy as np
 import uuid
 
+
+class SatSequenceInteger:
+    def __init__(self, number:'int' = 0, numbers:'list[tuple]' = [], constraints:'list' = []) -> None:
+        if len(numbers) > 0:
+            self.__numbers = numbers
+            self.__constraints = constraints
+        else:
+            b = Bool(str(uuid.uuid4()))
+            self.__numbers = [(number, b)]
+            self. __constraints = constraints + [b == True]
+
+        self.len = len(self.__numbers)
+
+    def get_constraints(self):
+        return self.__constraints
+
+    def all(self):
+        return self.__numbers
+
+    def __getitem__(self, idx):
+        return self.__numbers[idx]
+
+    def __add__(self, other:'SatSequenceInteger') -> 'SatSequenceInteger':
+        new_num = self.all() + other.all()
+        return SatSequenceInteger(numbers=new_num, constraints=self.__constraints + other.get_constraints())
+
+    def __mul__(self, other:'BoolRef'):
+        constraints = self.__constraints
+        new_num = []
+        for touple in self:
+            new_num.append((touple[0], And(touple[1],other)))
+        return SatSequenceInteger(numbers=self.__numbers, constraints = constraints)
+
+    def add_greater(self, other:'int'):
+        upper_constraints = []
+        lower_constraints = []
+        new_vars = []
+        for couple in self.all():
+            if couple[0] > other:
+                upper_constraints.append(couple[1])
+            else:
+                new_vars_i = [Bool(str(uuid.uuid4())) for _ in range(couple[0])]
+                new_vars += new_vars_i
+                lower_constraints.append(And(new_vars_i + [couple[1]]))
+        if len(new_vars) > other:
+            return And(Or(upper_constraints + [at_least_k(new_vars, other)]),And(lower_constraints))
+        if len(new_vars) == other:
+            return And(Or(upper_constraints + [And(new_vars)]),And(lower_constraints))
+
+        return Or(upper_constraints)
+
+    def add_less(self, other:'int'):
+        return Not(self.add_geq(other))
+
+    def add_geq(self, other:'int'):
+        upper_constraints = []
+        lower_constraints = []
+        new_vars = []
+        for couple in self.all():
+            if couple[0] > other:
+                upper_constraints.append(couple[1])
+            else:
+                new_vars_i = [Bool(str(uuid.uuid4())) for _ in range(couple[0])]
+                new_vars += new_vars_i
+                lower_constraints.append(And(new_vars_i + [couple[1]]))
+
+        if len(new_vars) > other:
+            return And(Or(upper_constraints + [at_least_k(new_vars, other)]),And(lower_constraints))
+        if len(new_vars) == other:
+            return And(Or(upper_constraints + [And(new_vars)]),And(lower_constraints))
+
+        return Or(upper_constraints)
+
+    def add_leq(self, other:'int'):
+        return Not(self.add_greater(other))
+    
+    def to_decimal(self, model):
+        res = 0
+        for couple in self.all():
+            try:
+                if model.evaluate(couple[1]):
+                    res += couple[0]
+            except:
+                pass
+
+        return res
+
+
+class SatOrderInteger:
+    def __init__(self, integer:'int' = 0, sequence:'list[BoolRef]' = [], constraints:'list' = [], name:'str'="name") -> None:
+        if len(sequence) > 0:
+            self.__encoding = sequence
+            self.name = name
+            self.__constraints = constraints
+            self.len = len(sequence)
+            return
+
+        self.__encoding = [Bool(str(uuid.uuid4())) for _ in range(integer)]
+        self.__constraints = [And(self.__encoding)] + constraints
+        self.name = name
+        self.len = integer
+
+
+    def get_constraints(self) -> list:
+        return self.__constraints
+
+    def all(self):
+        return self.__encoding
+
+    def __add__(self, other:'SatOrderInteger') -> 'SatOrderInteger':
+        encoding = self.all() + other.all()
+        constraints = self.__constraints + other.get_constraints()
+
+        return SatOrderInteger(sequence=encoding, constraints=constraints)
+
+
+    def __getitem__(self, idx):
+        return self.__encoding[idx]
+
+
+    def __mul__(self, other:'BoolRef') -> 'SatOrderInteger':
+        encoding = [Bool(str(uuid.uuid4())) for _ in range(len(self.all()))]
+        constraints = self.__constraints + [And(self[i], other) == encoding[i] for i in range(len(self.all()))]
+        return SatOrderInteger(sequence=encoding, constraints=constraints)
+
+    def to_decimal(self,model):
+        res = 0
+        for b in self.all():
+            try:
+                if model.evaluate(b):
+                    res += 1
+
+            except:
+                pass
+        return res
+
+
+    def add_greater(self, other:'int'):
+        if other + 1 == self.len:
+            return And(self.all())
+        return at_least_k(self.all(), other + 1)
+    
+    def add_less(self, other:'int'):
+        return at_most_k(self.all(), other - 1)
+
+    def add_equal(self, other:'int'):
+        return exactly_k(self.all(), other)
+
+    def add_geq(self, other:'int'):
+        if self.len < other:
+            print("oh, no", self.len, len(self.all()))
+            return False
+        return at_least_k(self.all(), other)
+
+    def add_leq(self, other:'int'):
+        if self.len < other:
+            return True
+        return at_most_k(self.all(), other)
+
+
 class SatInteger:
     def __init__(self, decimal_number: 'int' = 0, name: 'str' = "number",
                  binary: 'list' = [], pre_operations: 'list' = []) -> None:
@@ -210,35 +370,27 @@ class SatInteger:
         max_l = max_len_num.binary_length
 
         new_num = []
-        num = Bool(str(uuid.uuid4()))
-        operations.append(Xor(max_len_num[max_l - 1],
-                                  min_len_num[min_l - 1]) == num)
+        new_num.append(Xor(max_len_num[max_l - 1],
+                                  min_len_num[min_l - 1]))
         carry = And(max_len_num[max_l - 1],
                                   min_len_num[min_l - 1])
-        new_num.append(num)
         for i in range(2, min_length + 1):
             formula = Xor(max_len_num[max_l - i],
                           min_len_num[min_l - i])
-            final_num = Bool(str(uuid.uuid4()))
-            operations.append(Xor(formula, carry) == final_num)
+            new_num.append(Xor(formula, carry))
             carry = Or(And(formula, carry),
                                      And(max_len_num[max_l - i],
                                          min_len_num[min_l - i]))
-            new_num.append(final_num)
 
         if min_length != max_length:
 
             for i in range(min_length+1, max_length+1):
-                current_num = Bool(str(uuid.uuid4()))
-                operations.append(
-                    Xor(max_len_num[max_l - i], carry) == current_num)
+                new_num.append(
+                    Xor(max_len_num[max_l - i], carry))
 
                 carry = And(max_len_num[max_l - i], carry)
-                new_num.append(current_num)
 
-        final_num = Bool(str(uuid.uuid4()))
-        operations.append(carry == final_num)
-        new_num.append(final_num)
+        new_num.append(carry)
         operations = operations + self.get_constraints() + other.get_constraints()
         return SatInteger(binary=list(reversed(new_num)),
                    name=f"({self.name} + {other.name})",
@@ -249,12 +401,9 @@ class SatInteger:
         not_boolean, boolean, not_boolean_operations, boolean_operations = self.__get_operands(
             self, other)
         new_num = []
-        operations = []
         for n in not_boolean.all():
-            new_n = Bool(str(uuid.uuid4()))
-            operations.append(And(n, boolean) == new_n)
-            new_num.append(new_n)
-        operations = operations + not_boolean_operations + boolean_operations
+            new_num.append(And(n, boolean))
+        operations = not_boolean_operations + boolean_operations
         return SatInteger(binary=new_num,
                    name=f'({self.name} * {other})',
                    pre_operations=operations)
@@ -310,7 +459,7 @@ class SatSequences:
 
 
 def variable(variable_length:'int' = 1, variable_name:'str'="name")->'SatInteger':
-    return SatInteger(binary=[Bool(str(uuid.uuid4())) for i in range(variable_length)])
+    return SatInteger(binary=[Bool(str(uuid.uuid4())) for _ in range(variable_length)], name= variable_name)
 
 amo = lambda x: And([Not(And(pair[0], pair[1])) for pair in combinations(x,2)])
 
@@ -324,7 +473,7 @@ def at_most_one(bool_vars):
     constraints = []
     n = len(bool_vars)
     m = ceil(log2(n))
-    r = [Bool(str(uuid.uuid4())) for i in range(m)]
+    r = [Bool(str(uuid.uuid4())) for _ in range(m)]
     binaries = [toBinary(i, m) for i in range(n)]
     for i in range(n):
         for j in range(m):
@@ -463,7 +612,162 @@ def usage():
         print("seq3", seq3.to_decimal(m), m.evaluate(seq3.is_zero), [m.evaluate(seq3[i]) for i in range(5)])
         print("seq4", seq4.to_decimal(m), m.evaluate(seq4.is_zero), [m.evaluate(seq4[i]) for i in range(5)])
 
-
+def usage_2():
+    s = Solver()
+    seven = SatOrderInteger(integer=7, name="seven")
+    three = SatOrderInteger(3)
+    
+    fifteen = SatOrderInteger(15)
+    sixteen = SatOrderInteger(16)
+    s.add(fifteen.get_constraints())
+    s.add(sixteen.get_constraints())
+    s.add(sixteen.add_greater(15))
+    
+    six = SatOrderInteger(6)
+    ten = seven + three
+    one = SatOrderInteger(1)
+    res = seven * one[0]
+    b = Bool('zero')    
+    res2 = seven * b
+    s.add(Not(b))
+    s.add(seven.get_constraints())
+    s.add(three.get_constraints())
+    s.add(ten.get_constraints())
+    s.add(one.get_constraints())
+    s.add(res.get_constraints())
+    s.add(res2.get_constraints())
+    _18 = SatInteger(18, '18')
+    _24 = SatInteger(24, '24')
+    s.add(_18.get_constraints())
+    s.add(_24.get_constraints())
+    # s.add(_18.add_greater(_24))
+    s.add(seven.add_greater(6))
+    s.add(six.add_less(7))
+    s.add(six.get_constraints())
+    _2 = SatOrderInteger(2)
+    _4 = SatOrderInteger(4)
+    s.add(_2.get_constraints())
+    s.add(_4.get_constraints())
+    # _six = SatInteger(binary=[Bool("six1"), Bool("six2"), Bool("six3"), Bool("six4"), Bool("six5")], name="_six")
+    # s.add(six.add_leq(_six))
+    # s.add(six.add_geq(_six))
+    # s.add(six.add_equal(_six))
+    # s.add(_six.get_constraints())
+    # s.add(_24.add_less(_18))
+    _1234 = SatOrderInteger(1234)
+    _5678 = SatOrderInteger(5678)
+    s.add(_1234.get_constraints())
+    s.add(_5678.get_constraints())
+    r = _1234 + _5678
+    s.add(r.get_constraints())
+    _5 = SatOrderInteger(5)
+    a = _5 * b
+    # op = _six * one
+    # a += op
+    k = Bool("f")
+    s.add(Not(k))
+    op = _4 * k
+    a += op
+    s.add(a.get_constraints())
+    print(s.check())
+    if s.check() == sat:
+        m = s.model()
+        print("three",
+              [m.evaluate(v) for v in three.all()], three.to_decimal(m))
+        print("seven",
+              [m.evaluate(v) for v in seven.all()], seven.to_decimal(m))
+        print("res",
+              [m.evaluate(v) for v in res.all()], res.to_decimal(m))
+        print("res2",
+              [m.evaluate(v) for v in res2.all()], res2.to_decimal(m))
+        print("ten",
+              [m.evaluate(v) for v in ten.all()], ten.to_decimal(m))
+        print("one",
+              [m.evaluate(v) for v in one.all()], one.to_decimal(m))
+        print("six",
+              [m.evaluate(v) for v in six.all()], six.to_decimal(m))
+        # print("_six",
+        #       [m.evaluate(v) for v in _six.all()], _six.to_decimal(m))
+        print("_18",
+              [m.evaluate(v) for v in _18.all()], _18.to_decimal(m))
+        print("_24",
+              [m.evaluate(v) for v in _24.all()], _24.to_decimal(m))
+        print("r",
+               r.to_decimal(m))
+ 
+def usage_3():
+    s = Solver()
+    seven = SatSequenceInteger(7)
+    three = SatSequenceInteger(3)
+    
+    fifteen = SatSequenceInteger(15)
+    sixteen = SatSequenceInteger(16)
+    s.add(fifteen.get_constraints())
+    s.add(sixteen.get_constraints())
+    s.add(sixteen.add_greater(15))
+    
+    six = SatSequenceInteger(6)
+    ten = seven + three
+    one = SatSequenceInteger(1)
+    res = seven * one[0][1]
+    b = Bool('zero')    
+    res2 = seven * b
+    s.add(Not(b))
+    s.add(seven.get_constraints())
+    s.add(three.get_constraints())
+    s.add(ten.get_constraints())
+    s.add(one.get_constraints())
+    s.add(res.get_constraints())
+    s.add(res2.get_constraints())
+    _18 = SatSequenceInteger(18)
+    _24 = SatSequenceInteger(24)
+    s.add(_18.get_constraints())
+    s.add(_24.get_constraints())
+    # s.add(_18.add_greater(_24))
+    s.add(seven.add_greater(6))
+    s.add(six.add_less(7))
+    s.add(six.get_constraints())
+    _2 = SatSequenceInteger(2)
+    _4 = SatSequenceInteger(4)
+    s.add(_2.get_constraints())
+    s.add(_4.get_constraints())
+    # _six = SatInteger(binary=[Bool("six1"), Bool("six2"), Bool("six3"), Bool("six4"), Bool("six5")], name="_six")
+    # s.add(six.add_leq(_six))
+    # s.add(six.add_geq(_six))
+    # s.add(six.add_equal(_six))
+    # s.add(_six.get_constraints())
+    # s.add(_24.add_less(_18))
+    _1234 = SatSequenceInteger(1234)
+    _5678 = SatSequenceInteger(5678)
+    s.add(_1234.get_constraints())
+    s.add(_5678.get_constraints())
+    r = _1234 + _5678
+    s.add(r.get_constraints())
+    _5 = SatSequenceInteger(5)
+    a = _5 * b
+    # op = _six * one
+    # a += op
+    k = Bool("f")
+    s.add(Not(k))
+    op = _4 * k
+    a += op
+    s.add(a.get_constraints())
+    print(s.check())
+    if s.check() == sat:
+        m = s.model()
+        print("three", three.to_decimal(m))
+        print("seven", seven.to_decimal(m))
+        print("res", res.to_decimal(m))
+        print("res2", res2.to_decimal(m))
+        print("ten", ten.to_decimal(m))
+        print("one", one.to_decimal(m))
+        print("six", six.to_decimal(m))
+        # print("_six",
+        #       [m.evaluate(v) for v in _six.all()], _six.to_decimal(m))
+        print("_18", _18.to_decimal(m))
+        print("_24", _24.to_decimal(m))
+        print("r",
+               r.to_decimal(m))
 
 if __name__ == "__main__":
     usage()

@@ -277,6 +277,6 @@ class Sat_model:
         
 if __name__ == "__main__":
     model = Sat_model()
-    model.add_instance(Instance('instances/inst02.dat'))
+    model.add_instance(Instance('instances/inst07.dat'))
     print("created")
-    print(model.split_search())
+    print(model.minimize())
