@@ -1,5 +1,4 @@
 import numpy as np
-import sys
 
 class Instance:
 
@@ -60,7 +59,12 @@ class Instance:
             ))
         else:
             min_origin = int(min([self.distances[i,o] for i in range(self.n)]))
-            self.min_path = int(max([compute_path(self.distances[o,i], [o, i], min_select,k)['c'] + min_origin for i in range(self.n)]))
+            self.min_path = int(
+                max([
+                    int(compute_path(self.distances[o,i], [o, i], min_select,k)['c']) + min_origin
+                    for i in range(self.n)
+                ]
+                ))
 
         k = 1
         while sum(ordered_size[:self.n-k]) > max_weight:
@@ -83,7 +87,7 @@ class Instance:
             return i[0], c
 
         maxes = [compute_path(self.distances[o,i], [o, i], max_select,k) for i in range(self.n)]
-        self.max_path = int(np.max([m['c'] + self.distances[m['p'][-1],o] for m in maxes]))
+        self.max_path = int(np.max([int(m['c']) + self.distances[m['p'][-1],o] for m in maxes]))
 
 
     def save_dzn(self, file_path=None):
@@ -108,5 +112,5 @@ min_packs = {self.min_packs};
         path = "."
         if not file_path is None:
             path = file_path
-        file = open(f"{path}/{name}.dzn", "w")
+        file = open(f"{path}/{name}.dzn", "x")
         file.write(instance)
