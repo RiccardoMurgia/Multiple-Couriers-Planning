@@ -1,6 +1,7 @@
 from models.Cp.model import CpModel
 from models.Cp.solutions import CpSolution
-# from models.SAT.SAT_model import Sat_model
+from models.SAT.SAT_model import Sat_model
+from models.MIP.my_mip import Mip_model, Or_model, Pulp_model
 from instance import Instance
 from os import listdir
 from os.path import isfile, join
@@ -58,10 +59,34 @@ def solve_sat(config: 'dict', instance_path: 'str', verbose: 'bool'):
         print(f"solving instance {instance.name}")
         print("building model...")
         solver.add_instance(instance, build=True)
-        print("model builded, now solving...")
+        print("model built, now solving...")
         solutions = solver.minimize(timeout=config['timeout'], processes=config['processes'])
         if verbose:
             print(solutions[-1])
+
+
+def solve_mip(config: 'dict', instance_path: 'str', verbose: 'bool'):
+    library = config['mip']  # list ['mip','ortools', 'pull]
+    instances = load_instances(instance_path)
+    for lib in library:
+        print(f'loaded Mip model implemented with library: {lib}')
+        for instance in instances:
+            print("============================================================================")
+            print(f"solving instance {instance.name}")
+            print("building model...")
+            if lib == 'mip':
+                solver = Mip_model(instance, h=False, param=0)
+            elif lib == 'ortools':
+                solver = Or_model(instance)
+            else:
+                solver = Pulp_model(instance)
+
+            result = solver.get_result()
+
+            json_parser.save_results('cp', instance.name, result)
+            print("<----------------------------------------------->")
+            print(f'solution for library {lib}:')
+            # IT IS NECESARY TO PRINT THE SOLUTION
 
 
 def main(config: 'dict'):

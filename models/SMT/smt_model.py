@@ -1,12 +1,12 @@
 import z3
 from instance import Instance
-from mip_model import get_solution,save_results
+from models.MIP.mip_model import get_solution, save_results
 import time
 import datetime
 import os
 
-def z3_smt_model(instance):
 
+def z3_smt_model(instance):
     start_time = time.time()
 
     # Create a Z3 solver instance
@@ -40,9 +40,7 @@ def z3_smt_model(instance):
             solver.add(u[(k * instance.m) + i] >= 0)
             solver.add(u[(k * instance.m) + i] <= instance.origin - 1)
 
-
     obj = z3.Int('obj')
-
 
     # Upper and lower bounds on the objective
     solver.add(obj <= instance.max_path)
@@ -50,25 +48,26 @@ def z3_smt_model(instance):
 
     # Calculate the courier distance for each courier
     for k in range(instance.m):
-        courier_distance[k] = z3.Sum([z3.If(table[k][i][j],1,0) * instance.distances[i][j] for i in range(instance.origin) for j in range(instance.origin)])
+        courier_distance[k] = z3.Sum(
+            [z3.If(table[k][i][j], 1, 0) * instance.distances[i][j] for i in range(instance.origin) for j in
+             range(instance.origin)])
 
     # Objective
     for k in range(instance.m):
         solver.add(obj >= courier_distance[k])
 
-
     # Constraints
     for i in range(instance.origin):
-            for k in range(instance.m):
-                # A courier can't move to the same item
-                solver.add(table[k][i][i] == False)
-                # If an item is reached, it is also left by the same courier
-                solver.add(z3.Sum([table[k][i][j] for j in range(instance.origin)]) 
-                        == z3.Sum([table[k][j][i] for j in range(instance.origin)]))
-                
+        for k in range(instance.m):
+            # A courier can't move to the same item
+            solver.add(table[k][i][i] == False)
+            # If an item is reached, it is also left by the same courier
+            solver.add(z3.Sum([table[k][i][j] for j in range(instance.origin)])
+                       == z3.Sum([table[k][j][i] for j in range(instance.origin)]))
+
     for j in range(instance.origin - 1):
-        #Every items is delivered using PbEq
-        solver.add(z3.PbEq([(table[k][i][j],1) for k in range(instance.m) for i in range(instance.origin)], 1))
+        # Every items is delivered using PbEq
+        solver.add(z3.PbEq([(table[k][i][j], 1) for k in range(instance.m) for i in range(instance.origin)], 1))
 
     for k in range(instance.m):
         # Couriers start at the origin and end at the origin
@@ -76,41 +75,45 @@ def z3_smt_model(instance):
         solver.add(z3.Sum([table[k][j][instance.origin - 1] for j in range(instance.origin - 1)]) == 1)
 
         # Each courier can carry at most max_load items
-        solver.add(z3.Sum([instance.size[j] * table[k][i][j] for i in range(instance.origin) for j in range(instance.origin - 1)]) <= instance.max_load[k])
+        solver.add(z3.Sum(
+            [instance.size[j] * table[k][i][j] for i in range(instance.origin) for j in range(instance.origin - 1)]) <=
+                   instance.max_load[k])
 
         # Each courier must visit at least min_packs items and at most max_path_length items
-        solver.add(z3.Sum([table[k][i][j] for i in range(instance.origin) for j in range(instance.origin - 1)]) >= instance.min_packs)
-        solver.add(z3.Sum([table[k][i][j] for i in range(instance.origin) for j in range(instance.origin - 1)]) <= instance.max_path_length)
-        
+        solver.add(z3.Sum(
+            [table[k][i][j] for i in range(instance.origin) for j in range(instance.origin - 1)]) >= instance.min_packs)
+        solver.add(z3.Sum([table[k][i][j] for i in range(instance.origin) for j in
+                           range(instance.origin - 1)]) <= instance.max_path_length)
+
     # If a courier goes for i to j then it cannot go from j to i, except for the origin 
     # (this constraint it is not necessary for the model to work, but check if it improves the solution)
     for k in range(instance.m):
         for i in range(instance.origin - 1):
             for j in range(instance.origin - 1):
                 if i != j:
-                    #solver.add(z3.If(table[k][i][j],1,0) + z3.If(table[k][j][i],1,0) <= 1)
-                    solver.add(z3.PbLe([(table[k][i][j],1),(table[k][j][i],1)],1))
+                    # solver.add(z3.If(table[k][i][j],1,0) + z3.If(table[k][j][i],1,0) <= 1)
+                    solver.add(z3.PbLe([(table[k][i][j], 1), (table[k][j][i], 1)], 1))
 
     # Subtour elimination
     for k in range(instance.m):
         for i in range(instance.origin - 1):
             for j in range(instance.origin - 1):
                 if i != j:
-                    solver.add(u[(k * instance.m) + j] >= u[(k * instance.m) + i] + 1 - instance.origin * (1 - z3.If(table[k][i][j], 1, 0)))
-
+                    solver.add(u[(k * instance.m) + j] >= u[(k * instance.m) + i] + 1 - instance.origin * (
+                                1 - z3.If(table[k][i][j], 1, 0)))
 
     end_time = time.time()
     inst_time = end_time - start_time
 
     if inst_time >= 300:
-            result =  {
-                "time": round(inst_time,3),
-                "optimal": False,
-                "obj": None,
-                "sol": None
-            }
+        result = {
+            "time": round(inst_time, 3),
+            "optimal": False,
+            "obj": None,
+            "sol": None
+        }
 
-    solver.set("timeout", int(300-inst_time)*1000) 
+    solver.set("timeout", int(300 - inst_time) * 1000)
 
     # Model optimization
     while solver.check() == z3.sat:
@@ -119,52 +122,56 @@ def z3_smt_model(instance):
 
         # Check if the solution is optimal
         if solver.check() == z3.unsat:
-
             end_time = time.time()
             inst_time = end_time - start_time
 
             # Convert table to a list of lists of booleans
-            table = [[[model[table[k][i][j]] for j in range(instance.origin)] for i in range(instance.origin)] for k in range(instance.m)]
+            table = [[[model[table[k][i][j]] for j in range(instance.origin)] for i in range(instance.origin)] for k in
+                     range(instance.m)]
 
             lib = "z3"
             result = {
-                "time": round(inst_time,3),
+                "time": round(inst_time, 3),
                 "optimal": True,
                 "obj": model[obj],
-                "sol": get_solution(lib,instance, table)
+                "sol": get_solution(lib, instance, table)
             }
             print(result)
 
             return result
-        
+
     return {
-                "time": round(inst_time,3),
-                "optimal": False,
-                "obj": model[obj],
-                "sol": get_solution(lib,instance, table)
-            }
+        "time": round(inst_time, 3),
+        "optimal": False,
+        "obj": model[obj],
+        "sol": get_solution(lib, instance, table)
+    }
+
 
 if __name__ == "__main__":
 
-    #Create directory if it doesn't exist
+    # Create directory if it doesn't exist
     if not os.path.exists("res/SMT"):
         os.makedirs("res/SMT")
 
     # Log file
     log = open("res/SMT/log.txt", "a+")
 
+
     # Print in the log file and in the console
     def print_log(string):
         log.write(str(string) + "\n")
         print(string)
 
-    # Print the header
-    print_log("\n\n---------------------------------------------- LOGGING {} ----------------------------------------------\n\n"
-            .format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
 
-    #Solve all the instances
+    # Print the header
+    print_log(
+        "\n\n---------------------------------------------- LOGGING {} ----------------------------------------------\n\n"
+        .format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+    # Solve all the instances
     start_tot_time = time.time()
-    for i in [0,1,2,3,4,5,6,7,8,9,10]: #[0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
+    for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:  # [0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
         if i < 10:
             instance = Instance("instances/inst0" + str(i) + ".dat")
         else:
@@ -177,10 +184,10 @@ if __name__ == "__main__":
         print_log("\nSMT MODEL")
         result = z3_smt_model(instance)
         print_log(result)
-        save_results("SMT",instance.name,result)
+        save_results("SMT", instance.name, result)
 
     end_tot_time = time.time()
-    print_log('\n\nTotal time: {} seconds'.format(round(end_tot_time - start_tot_time,3)))
+    print_log('\n\nTotal time: {} seconds'.format(round(end_tot_time - start_tot_time, 3)))
 
     # Close the log file
     log.close()
