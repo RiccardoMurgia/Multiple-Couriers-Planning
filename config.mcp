@@ -7,7 +7,7 @@
 	},
 	"sat":{
 		"timeout":300000,
-		"processes":8
+		"processes":1
 	},
 	"just_time":true,
 	"verbose":false
