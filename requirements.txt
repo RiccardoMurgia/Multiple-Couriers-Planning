@@ -1,2 +1,6 @@
 numpy
 z3-solver
+mip
+pulp
+ortools
+jsbeautifier

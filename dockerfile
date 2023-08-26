@@ -63,4 +63,4 @@ COPY . .
 RUN pip install -r /requirements.txt
 
 
-CMD ["python3", "-u", "./Mcp.py", "-c", "./config.mcp"]
+CMD ["python3", "-u", "./mip3.py"]
