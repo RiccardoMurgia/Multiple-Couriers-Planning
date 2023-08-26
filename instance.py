@@ -103,7 +103,6 @@ min_path = {self.min_path};
 max_path = {self.max_path};
 max_path_length = {self.max_path_length};
 origin  = {self.origin};
-number_of_origin_stops = {self.number_of_origin_stops};
 n_array = {self.n_array};
 count_array = {self.count_array};
 min_packs = {self.min_packs};

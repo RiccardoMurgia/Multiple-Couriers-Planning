@@ -17,8 +17,7 @@ int: min_packs;
 
 array[1..m, 1..max_path_length] of var 1..n+1: courier_route; % route of each courier
 array[1..m] of var int: courier_distance; % distance traveled by each courier
-array[1..m,1..n] of var 0..1: courier_load;
-
+array[1..n] of var 1..n: packs;
 var int: max_distance; % max distance traveled
 
 constraint forall(j in 1..m)(
@@ -27,18 +26,16 @@ constraint forall(j in 1..m)(
 
 constraint forall(j in 1..m, i in 2..min_packs+1)(
 	courier_route[j,i] != origin
-); 
-
-constraint forall(j in 1..m)(
-	max_load[j] >= sum(i in 1..n)(courier_load[j,i] * size[i])
 );
+
+constraint bin_packing_capa(max_load, packs, size);
 
 constraint forall(i in 2..min_packs+1)(
 	all_different(courier_route[m..1,i])
 );
 
 constraint forall(j in 1..m, i in 1..n)(
-		count_eq(courier_route[j,2..max_path_length-1], i, courier_load[j,i])
+		member(courier_route[j,2..max_path_length-1], i) <-> packs[i] = j
 ); % each package must be delivered at some point and a location can be visited only one time
 
 constraint forall(j in 1..m, i in 2..max_path_length-1)(
@@ -56,7 +53,7 @@ constraint max_distance >= min_path; % do not search for impossible solutions
 constraint max_distance <= max_path; % do not search for impossible solutions
 
 constraint symmetry_breaking_constraint(
-	let{array[1..m] of var int: load = [sum(i in 1..n)(size[i] * courier_load[j,i]) | j in 1..m]} in
+	let{array[1..m] of var int: load = [sum(i in 1..n where packs[i] = j)(size[i]) | j in 1..m]} in
 		increasing(load)
 );
 

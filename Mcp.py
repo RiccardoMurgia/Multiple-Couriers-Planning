@@ -1,5 +1,4 @@
 from models.Cp.model import CpModel
-from models.Cp.solutions import CpSolution
 from models.SAT.SAT_model import Sat_model
 from models.MIP.my_mip import Mip_model, Or_model, Pulp_model
 from instance import Instance
@@ -90,9 +89,11 @@ def solve_mip(config: 'dict', instance_path: 'str', verbose: 'bool'):
 
 
 def main(config: 'dict'):
-    solve_cp(config['cp'], config['instances_path'], config['just_time'], config['verbose'])
+    # solve_cp(config['cp'], config['instances_path'], config['just_time'], config['verbose'])
     # solve_sat(config['sat'], config['instances_path'], config['verbose'])
-
+    instances = load_instances(config['instances_path'])
+    for instance in instances:
+        instance.save_dzn('instances/parsed_instances')
 
 if __name__ == '__main__':
     main(load_parameters())
