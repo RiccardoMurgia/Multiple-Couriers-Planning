@@ -17,7 +17,7 @@ int: min_packs;
 
 array[1..m, 1..max_path_length] of var 1..n+1: courier_route; % route of each courier
 array[1..m] of var int: courier_distance; % distance traveled by each courier
-array[1..n] of var 1..n: packs;
+array[1..n] of var 1..m: packs;
 var int: max_distance; % max distance traveled
 
 constraint forall(j in 1..m)(
@@ -43,6 +43,7 @@ constraint forall(j in 1..m, i in 2..max_path_length-1)(
 );
 
 constraint global_cardinality_closed(courier_route, n_array, count_array);
+
 constraint forall(j in 1..m) (
   courier_distance[j] = sum(i in 2..max_path_length) (dist[courier_route[j,i-1], courier_route[j,i]])
 ); % compute courier distance
@@ -56,7 +57,6 @@ constraint symmetry_breaking_constraint(
 	let{array[1..m] of var int: load = [sum(i in 1..n where packs[i] = j)(size[i]) | j in 1..m]} in
 		increasing(load)
 );
-
 
 solve:: restart_luby(1000) minimize max_distance;
 

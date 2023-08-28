@@ -209,7 +209,7 @@ class SatInteger:
         return self.__operations
 
 
-    def add_greater(self, other):
+    def add_greater(self, other:'SatInteger'):
         max_length = max(self.binary_length, other.binary_length)
         min_length = min(self.binary_length, other.binary_length)
         remain = max_length - min_length
@@ -240,7 +240,7 @@ class SatInteger:
 
         return constraints
 
-    def add_less(self, other):
+    def add_less(self, other:'SatInteger'):
         max_length = max(self.binary_length, other.binary_length)
         min_length = min(self.binary_length, other.binary_length)
         remain = max_length - min_length
@@ -272,7 +272,7 @@ class SatInteger:
 
 
 
-    def add_equal(self, other):
+    def add_equal(self, other:'SatInteger'):
         max_length = max(self.binary_length, other.binary_length)
         min_length = min(self.binary_length, other.binary_length)
 
