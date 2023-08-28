@@ -1,11 +1,12 @@
 import numpy as np
 
+
 class Instance:
 
-    def __init__(self, file_path:'str') -> None:
-        self.name = file_path.split('/')[-1].replace('.dat','')
+    def __init__(self, file_path: 'str') -> None:
+        self.name = file_path.split('/')[-1].replace('.dat', '')
         file = open(file_path, "r")
-        lines = [line.replace('\n','') for line in file]
+        lines = [line.replace('\n', '') for line in file]
         file.close()
         self.m = int(lines[0])
         self.n = int(lines[1])
@@ -18,29 +19,30 @@ class Instance:
         for i in range(self.n + 1):
             line = lines[i].split(' ')
             for j in range(self.n + 1):
-                self.distances[i,j] = int(line[j])
+                self.distances[i, j] = int(line[j])
 
         self.optimal_paths = None
         self.min_path = 0
-        self.max_path_length = self.n-self.m+3
+        self.max_path_length = self.n - self.m + 3
         self.compute_bounds()
         self.number_of_origin_stops = int((self.max_path_length * self.m) - self.n)
-        self.origin = int(self.n+1)
-        self.n_array = [i+1 for i in range(self.n + 1)]
+        self.origin = int(self.n + 1)
+        self.n_array = [i + 1 for i in range(self.n + 1)]
         self.count_array = [1 for _ in range(self.n)] + [self.number_of_origin_stops]
 
-    
     def compute_bounds(self) -> 'None':
         o = self.n
+
         def compute_path(current_cost, nodes, select, steps):
             if steps > len(nodes) - 1:
                 next_step, cost = select(nodes)
                 updated_nodes = nodes + [next_step]
                 cost += current_cost
                 return compute_path(cost, updated_nodes, select, steps)
-            return {'p':nodes, 'c': current_cost}
-        
+            return {'p': nodes, 'c': current_cost}
+
         max_weight = sum(self.max_load[1:])
+
         def min_select(nodes):
             dist = np.copy(self.distances[nodes[-1], :])
             dist[nodes] = np.max(dist) + 1
@@ -51,30 +53,30 @@ class Instance:
         ordered_size = sorted(self.size)
 
         k = 1
-        while sum(ordered_size[:self.n-k]) > max_weight:
-            k +=1
+        while sum(ordered_size[:self.n - k]) > max_weight:
+            k += 1
         if k == 1:
             self.min_path = int(np.max(
-                [ self.distances[o, i] + self.distances[i, o] for i in range(self.n)]
+                [self.distances[o, i] + self.distances[i, o] for i in range(self.n)]
             ))
         else:
-            min_origin = int(min([self.distances[i,o] for i in range(self.n)]))
+            min_origin = int(min([self.distances[i, o] for i in range(self.n)]))
             self.min_path = int(
                 max([
-                    int(compute_path(self.distances[o,i], [o, i], min_select,k)['c']) + min_origin
+                    int(compute_path(self.distances[o, i], [o, i], min_select, k)['c']) + min_origin
                     for i in range(self.n)
                 ]
                 ))
 
         k = 1
-        while sum(ordered_size[:self.n-k]) > max_weight:
-            k +=1
+        while sum(ordered_size[:self.n - k]) > max_weight:
+            k += 1
         self.min_packs = k
 
         k = 1
         while sum(ordered_size[:k]) < self.max_load[-1] and k < self.n:
-            k+=1
-        
+            k += 1
+
         self.max_packs = k
 
         self.max_path_length = min(self.max_packs + 2, self.max_path_length)
@@ -86,9 +88,8 @@ class Instance:
             i, = np.where(dist == c)
             return i[0], c
 
-        maxes = [compute_path(self.distances[o,i], [o, i], max_select,k) for i in range(self.n)]
-        self.max_path = int(np.max([int(m['c']) + self.distances[m['p'][-1],o] for m in maxes]))
-
+        maxes = [compute_path(self.distances[o, i], [o, i], max_select, k) for i in range(self.n)]
+        self.max_path = int(np.max([int(m['c']) + self.distances[m['p'][-1], o] for m in maxes]))
 
     def save_dzn(self, file_path=None):
         distaces_list = self.distances
@@ -103,7 +104,6 @@ min_path = {self.min_path};
 max_path = {self.max_path};
 max_path_length = {self.max_path_length};
 origin  = {self.origin};
-number_of_origin_stops = {self.number_of_origin_stops};
 n_array = {self.n_array};
 count_array = {self.count_array};
 min_packs = {self.min_packs};
@@ -112,5 +112,5 @@ min_packs = {self.min_packs};
         path = "."
         if not file_path is None:
             path = file_path
-        file = open(f"{path}/{name}.dzn", "x")
+        file = open(f"{path}/{name}.dzn", "w")
         file.write(instance)

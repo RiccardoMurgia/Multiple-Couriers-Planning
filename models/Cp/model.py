@@ -1,10 +1,8 @@
 import json
 import re
-from typing import Dict, Any
 
 from instance import *
-from datetime import timedelta
-from pathlib import Path
+
 from models.Cp.solutions import CpSolution
 import subprocess
 
@@ -19,7 +17,6 @@ class CpModel:
     def add_instance(self, instance: 'Instance', solver: 'str' = 'Gecode') -> 'None':
         self.__instance = instance
         self.__solver = solver
-
 
     def solve(self, timeout: 'int' = 300000, processes: 'int' = 1) -> CpSolution:
         self.__instance.save_dzn('.cache/cp')

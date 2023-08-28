@@ -1,13 +1,29 @@
 {
 	"instances_path":"./instances/",
+    "usage_mode":{
+                "instances_to_solve": "[inst00.dat, inst01.dat]",
+                "models_to_use":["cp", "mip"]
+    },
 	"cp":{
-		"solvers":["gecode","or-tools"],
+		"solvers":["gecode"],
 		"timeout":300000,
 		"processes":8
 	},
 	"sat":{
 		"timeout":300000,
 		"processes":8
+	},
+    "mip": {
+        "library": ["mip", "ortools", "pull"],
+        "timeout": 300000,
+        "processes": 8
+
+    },
+	"smt":{
+	    "library":["z3"],
+	    "timeout":300000,
+	    "processes":8
+
 	},
 	"just_time":true,
 	"verbose":false

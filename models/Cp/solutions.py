@@ -4,16 +4,16 @@ LAMBDA = 0.1
 class CpSolution:
 
     def __init__(self, info: 'dict') -> None:
-        self.all_statistics = None
-        self.last_solution = None
-        self.solved = True
-        self.satisfiable = True
-        self.found_optimal_solution = False
-        self.n_solutions = None
-        self.init_time = 0
-        self.solve_time = 0
-        self.total_time = 0
-        self.result = {}
+        self.__all_statistics = None
+        self.__last_solution = None
+        self.__solved = True
+        self.__satisfiable = True
+        self.__found_optimal_solution = False
+        self.__n_solutions = None
+        self.__init_time = 0
+        self.__solve_time = 0
+        self.__total_time = 0
+        self.__result = {}
 
         try:
 
@@ -27,62 +27,61 @@ class CpSolution:
                 self.parse_solutions(solutions)
 
             if status == 'OPTIMAL_SOLUTION':
-                self.found_optimal_solution = True
+                self.__found_optimal_solution = True
             if status == 'UNKNOWN':
-                self.solved = False
+                self.__solved = False
                 return
             if status == "UNSATISFIABLE":
-                self.satisfiable = False
+                self.__satisfiable = False
                 return
 
-            self.result['time'] = self.solve_time
-            self.result['optimal'] = self.found_optimal_solution
-            self.result['obj'] = self.last_solution['max_distance']
-            self.result['sol'] = self.last_solution['courier_route']
+            self.__result['time'] = self.__solve_time
+            self.__result['optimal'] = self.__found_optimal_solution
+            self.__result['obj'] = self.__last_solution['max_distance']
+            self.__result['sol'] = self.__last_solution['courier_route']
 
         except Exception as e:
-            print(e)
-            self.solved = False
-            self.all_statistics = []
+            self.__solved = False
+            self.__all_statistics = []
             self.solutions = None
-            print('Solution Not Found')
+            print('Solution Not Found, Exception:', e)
 
     def is_solved(self, timeout: int = 300000) -> bool:
-        return self.solved and self.satisfiable and abs(self.solve_time - timeout) < LAMBDA
+        return self.__solved and self.__satisfiable and abs(self.__solve_time - timeout) < LAMBDA
 
     def parse_statistics(self, statistics: 'dict') -> None:
-        self.n_solutions = statistics[-1]['statistics']['nSolutions']
-        self.init_time = statistics[-2]['statistics']['initTime']
-        self.solve_time = statistics[-2]['statistics']['solveTime']
-        self.total_time = self.init_time + self.solve_time
-        self.all_statistics = statistics
+        self.__n_solutions = statistics[-1]['statistics']['nSolutions']
+        self.__init_time = statistics[-2]['statistics']['initTime']
+        self.__solve_time = statistics[-2]['statistics']['solveTime']
+        self.__total_time = self.__init_time + self.__solve_time
+        self.__all_statistics = statistics
 
     def parse_solutions(self, all_solutions: 'dict') -> None:
         self.solutions = all_solutions
-        self.last_solution = self.solutions[-1]
-        self.n_solutions = len(self.solutions)
+        self.__last_solution = self.solutions[-1]
+        self.__n_solutions = len(self.solutions)
 
     def get_result(self) -> dict:
-        return self.result
+        return self.__result
 
     def print(self, jt: 'bool', v: 'bool', timeout: 'int' = 300000) -> None:
-        if not self.solved:
+        if not self.__solved:
             print("Solution not found")
             return None
-        if not self.satisfiable:
+        if not self.__satisfiable:
             print("Instance unsatisfiable")
             return None
-        if abs(self.solve_time - timeout) < LAMBDA or not self.found_optimal_solution:
+        if abs(self.__solve_time - timeout) < LAMBDA or not self.__found_optimal_solution:
             print("Optimal solution not found")
-        elif self.found_optimal_solution:
+        elif self.__found_optimal_solution:
             print('Optimal solution found')
 
         if v or jt:
             print("-------------------------------------------------")
             print("SOLUTION STATISTICS :")
-            print("- Solve time = ", self.solve_time)
-            print("- Number of solutions = ", self.n_solutions)
-            if self.found_optimal_solution:
-                print('- Optimal Solution:', self.last_solution)
+            print("- Solve time = ", self.__solve_time)
+            print("- Number of solutions = ", self.__n_solutions)
+            if self.__found_optimal_solution:
+                print('- Optimal Solution:', self.__last_solution)
             else:
-                print('- Solution', self.last_solution)
+                print('- Solution', self.__last_solution)

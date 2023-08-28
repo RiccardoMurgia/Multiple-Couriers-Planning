@@ -1,557 +1,497 @@
 import mip
 from ortools.linear_solver import pywraplp
 import pulp
-from instance import Instance
+
 import time
 import multiprocessing
-import os
-import json
-import jsbeautifier
-import datetime
-import z3
-
-# Define the paths for each approach's result folder
-results_folder = "res"
-approach_folders = {
-    "MIP": os.path.join(results_folder, "MIP"),
-    "SAT": os.path.join(results_folder, "SAT"),
-    "CP": os.path.join(results_folder, "CP"),
-    "SMT": os.path.join(results_folder, "SMT")
-}
-
-
-def get_solution(lib, instance, table):
-    # Create a dictionary to store the routes for each courier
-    courier_routes = {k: [] for k in range(instance.m)}
-
-    # Extract and populate courier routes
-    for k in range(instance.m):
-        if lib == "mip":
-            courier_routes[k] = [[i, j] for i in range(instance.origin) for j in range(instance.origin) if
-                                 table[k, i, j].x == 1]
-        elif lib == "ortools":
-            courier_routes[k] = [[i, j] for i in range(instance.origin) for j in range(instance.origin) if
-                                 table[k, i, j].solution_value() == 1]
-        elif lib == "pulp":
-            courier_routes[k] = [[i, j] for i in range(instance.origin) for j in range(instance.origin) if
-                                 table[k, i, j].value() == 1]
-        elif lib == "z3":
-            courier_routes[k] = [[i, j] for i in range(instance.origin) for j in range(instance.origin) if
-                                 table[k][i][j]]
-
-    # Reorder the routes to start from the origin
-    for k in range(instance.m):
-        origin_index = next((i for i, route in enumerate(courier_routes[k]) if route[0] == instance.origin - 1), None)
-        if origin_index is not None:
-            courier_routes[k] = courier_routes[k][origin_index:] + courier_routes[k][:origin_index]
-
-    # Reorder it in a way that the first element of the tuple i is the second element of the tuple i-1
-    for k in range(instance.m):
-        for i in range(1, len(courier_routes[k])):
-            if courier_routes[k][i][0] != courier_routes[k][i - 1][1]:
-                for j in range(i + 1, len(courier_routes[k])):
-                    if courier_routes[k][i][0] == courier_routes[k][j][1]:
-                        courier_routes[k][i], courier_routes[k][j] = courier_routes[k][j], courier_routes[k][i]
-                        break
-
-    # Remove instance.origin - 1 from the routes
-    for k in range(instance.m):
-        courier_routes[k] = [route[0] for route in courier_routes[k]]
-        if len(courier_routes[k]) > 0:
-            courier_routes[k].pop(0)
-
-    # Create a list to store the routes for each courier
-    routes = [courier_routes[k] for k in range(instance.m)]
-
-    # print(routes)
-    return routes
-
-
-def save_results(approach_name, instance_number, result):
-    # Create the approach's result folder if it doesn't exist
-    if approach_name in approach_folders:
-        if not os.path.exists(approach_folders[approach_name]):
-            os.makedirs(approach_folders[approach_name])
-
-    # Save the result to a JSOinstance.origin file
-    instance_path = os.path.join(approach_folders[approach_name], f"{instance_number}.json")
-    with open(instance_path, "w") as json_file:
-        options = jsbeautifier.default_options()
-        options.indent_size = 4
-        json_string = jsbeautifier.beautify(json.dumps({approach_name: result}), options)
-        json_file.write(json_string)
-
-
-def clark_wright_savings(distances, capacity):
-    # Calculate savings for all pairs of nodes
-    savings = []
-    for i in range(1, len(distances)):
-        for j in range(i + 1, len(distances)):
-            savings.append((i, j, distances[0][i] + distances[0][j] - distances[i][j]))
-
-    # Sort savings in descending order
-    savings.sort(key=lambda x: x[2], reverse=True)
-
-    # Initialize routes
-    routes = [[0] for _ in range(len(distances))]
-    used_capacity = [0] * len(distances)
-
-    # Greedily assign customers to routes
-    for i, j, s in savings:
-        route_i = None
-        route_j = None
-        for r in range(len(routes)):
-            if i in routes[r]:
-                route_i = r
-            if j in routes[r]:
-                route_j = r
-        if route_i is not None and route_j is not None and route_i != route_j:
-            if used_capacity[route_i] + used_capacity[route_j] + distances[i][j] <= capacity:
-                routes[route_i].remove(i)
-                routes[route_j].remove(j)
-                routes[route_i] += [i, j]
-                used_capacity[route_i] += distances[i][j]
-                used_capacity[route_j] += distances[i][j]
-
-    return routes
-
-
-def mip_model(instance, param, h=False):
-    lib = "mip"
-
-    start_time = time.time()
-
-    # Create model
-    model = mip.Model(solver_name=mip.CBC)
-    model.verbose = 0
-
-    # Create variables
-    table = {}
-    for k in range(instance.m):
-        for i in range(instance.origin):
-            for j in range(instance.origin):
-                table[k, i, j] = model.add_var(var_type=mip.INTEGER, name=f'table_{k}_{i}_{j}')
-
-    courier_distance = [model.add_var(var_type=mip.INTEGER, name=f'courier_distance_{k}') for k in range(instance.m)]
-
-    # Auxiliary variables to avoid subtours
-    u = {}
-    for k in range(instance.m):
-        for i in range(instance.origin):
-            u[k, i] = model.add_var(var_type=mip.INTEGER, lb=1, ub=instance.origin, name=f'u_{k}_{i}')
-
-    # Objective
-    obj = model.add_var(var_type=mip.INTEGER, name='obj')
-
-    for k in range(instance.m):
-        model += courier_distance[k] == mip.xsum(
-            instance.distances[i][j] * table[k, i, j] for i in range(instance.origin) for j in range(instance.origin))
-
-    # Upper and lower bounds
-    model += obj <= instance.max_path
-    model += obj >= instance.min_path
-
-    for k in range(instance.m):
-        model += obj >= courier_distance[k]
-
-    # Constraints
-    for i in range(instance.origin):
-        for k in range(instance.m):
-            # A courier can't move to the same item
-            model += table[k, i, i] == 0
-            # If an item is reached, it is also left by the same courier
-            model += mip.xsum(table[k, i, j] for j in range(instance.origin)) == mip.xsum(
-                table[k, j, i] for j in range(instance.origin))
-
-    for j in range(instance.origin - 1):
-        # Every item is delivered
-        model += mip.xsum(table[k, i, j] for k in range(instance.m) for i in range(instance.origin)) == 1
-
-    for k in range(instance.m):
-        # Couriers start at the origin and end at the origin
-        model += mip.xsum(table[k, instance.origin - 1, j] for j in range(instance.origin - 1)) == 1
-        model += mip.xsum(table[k, j, instance.origin - 1] for j in range(instance.origin - 1)) == 1
-
-        # Each courier can carry at most max_load items
-        model += mip.xsum(
-            table[k, i, j] * instance.size[j] for i in range(instance.origin) for j in range(instance.origin - 1)) <= \
-                 instance.max_load[k]
-
-        # Each courier must visit at least min_packs items and at most max_path_length items
-        model += mip.xsum(
-            table[k, i, j] for i in range(instance.origin) for j in range(instance.origin - 1)) >= instance.min_packs
-        model += mip.xsum(table[k, i, j] for i in range(instance.origin) for j in
-                          range(instance.origin - 1)) <= instance.max_path_length
-
-    # If a courier goes for i to j then it cannot go from j to i, except for the origin
-    # (this constraint it is not necessary for the model to work, but check if it improves the solution)
-    for k in range(instance.m):
-        for i in range(instance.origin - 1):
-            for j in range(instance.origin - 1):
-                if i != j:
-                    model += table[k, i, j] + table[k, j, i] <= 1
-
-    # Subtour elimination
-    for k in range(instance.m):
-        for i in range(instance.origin - 1):
-            for j in range(instance.origin - 1):
-                if i != j:
-                    model += u[k, j] - u[k, i] >= 1 - instance.origin * (1 - table[k, i, j])
-
-    # Set the objective
-    model.objective = mip.minimize(obj)
-
-    # Parameters
-    # model.emphasis = 2  # Set to 1 or 2 to get progressively better solutions
-    model.cuts = param  # Enable Gomory cuts
-    # model.heuristics = 1  # Enable simple rounding heuristic
-    # model.pump_passes = 1  # Perform one pass of diving heuristics
-    # model.probing_level = 3  # Enable probing
-    # model.rins = 1  # Enable RINS heuristic
-    model.threads = multiprocessing.cpu_count()
-
-    if h:
-        # Call the Clark and Wright Savings Algorithm
-        initial_routes = clark_wright_savings(instance.dist, instance.max_load[0])
-
-        # Initialize routes using Clark and Wright Savings Algorithm
-        for k, route in enumerate(initial_routes):
-            for i, j in zip(route, route[1:]):
-                table[k, i, j].start = 1
-
-        print('Usign warm start CWS: Initial solution found in {} seconds'.format(time.time() - start_time))
-
-    end_time = time.time()
-    inst_time = end_time - start_time
-
-    if inst_time >= 300:
-        return {
-            "time": round(inst_time, 3),
-            "optimal": False,
-            "obj": None,
-            "sol": None
-        }
-
-    status = model.optimize(max_seconds=int(300 - inst_time))
-    end_time = time.time()
-    inst_time = end_time - start_time
-
-    # Output
-    if status == mip.OptimizationStatus.OPTIMAL or status == mip.OptimizationStatus.FEASIBLE:
-        result = {
-            "time": round(inst_time, 3),
-            "optimal": status == mip.OptimizationStatus.OPTIMAL,
-            "obj": model.objective_value,
-            "sol": get_solution(lib, instance, table)
-        }
-    else:
-        result = {
-            "time": round(inst_time, 3),
-            "optimal": status == mip.OptimizationStatus.OPTIMAL,
-            "obj": None,
-            "sol": None
-        }
-
-    return result
-
-
-def or_model(instance, solv='CBC_MIXED_INTEGER_PROGRAMMING'):
-    lib = "ortools"
-
-    start_time = time.time()
-
-    # Create solver
-    solver = pywraplp.Solver.CreateSolver(solv)
-
-    # Create variables
-    table = {}
-    for k in range(instance.m):
-        for i in range(instance.origin):
-            for j in range(instance.origin):
-                table[k, i, j] = solver.IntVar(0, 1, f'table_{k}_{i}_{j}')
-
-    courier_distance = [solver.IntVar(0, instance.max_path, f'courier_distance_{k}') for k in range(instance.m)]
-
-    # Auxiliary variables to avoid subtours
-    u = {}
-    for k in range(instance.m):
-        for i in range(instance.origin):
-            u[k, i] = solver.IntVar(0, instance.origin - 1, f'u_{k}_{i}')
-
-    # Objective
-    obj = solver.IntVar(0, instance.max_path, 'obj')
-
-    for k in range(instance.m):
-        courier_distance[k] = solver.Sum(
-            instance.distances[i][j] * table[k, i, j] for i in range(instance.origin) for j in range(instance.origin))
-
-    # Upper and lower bounds
-    solver.Add(obj <= instance.max_path)
-    solver.Add(obj >= instance.min_path)
-
-    for k in range(instance.m):
-        solver.Add(obj >= courier_distance[k])
-
-    # Constraints
-    for i in range(instance.origin):
-        for k in range(instance.m):
-            # A courier can't move to the same item
-            solver.Add(table[k, i, i] == 0)
-            # If an item is reached, it is also left by the same courier
-            solver.Add(solver.Sum(table[k, i, j] for j in range(instance.origin)) == solver.Sum(
-                table[k, j, i] for j in range(instance.origin)))
-
-    for j in range(instance.origin - 1):
-        # Every item is delivered
-        solver.Add(solver.Sum(table[k, i, j] for k in range(instance.m) for i in range(instance.origin)) == 1)
-
-    for k in range(instance.m):
-        # Couriers start at the origin and end at the origin
-        solver.Add(solver.Sum(table[k, instance.origin - 1, j] for j in range(instance.origin - 1)) == 1)
-        solver.Add(solver.Sum(table[k, j, instance.origin - 1] for j in range(instance.origin - 1)) == 1)
-
-        # Each courier can carry at most max_load items
-        solver.Add(solver.Sum(
-            table[k, i, j] * instance.size[j] for i in range(instance.origin) for j in range(instance.origin - 1)) <=
-                   instance.max_load[k])
-
-        # Each courier must visit at least min_packs items and at most max_path_length items
-        solver.Add(solver.Sum(
-            table[k, i, j] for i in range(instance.origin) for j in range(instance.origin - 1)) >= instance.min_packs)
-        solver.Add(solver.Sum(table[k, i, j] for i in range(instance.origin) for j in
-                              range(instance.origin - 1)) <= instance.max_path_length)
-
-    # If a courier goes for i to j then it cannot go from j to i, except for the origin
-    # (this constraint it is not necessary for the model to work, but check if it improves the solution)
-    for k in range(instance.m):
-        for i in range(instance.origin - 1):
-            for j in range(instance.origin - 1):
-                if i != j:
-                    solver.Add(table[k, i, j] + table[k, j, i] <= 1)
-
-    # Subtour elimination
-    for k in range(instance.m):
-        for i in range(instance.origin - 1):
-            for j in range(instance.origin - 1):
-                if i != j:
-                    solver.Add(u[k, j] >= u[k, i] + 1 - instance.origin * (1 - table[k, i, j]))
-
-    # Set the objective
-    solver.Minimize(obj)
-
-    end_time = time.time()
-    inst_time = end_time - start_time
-
-    if inst_time >= 300:
-        return {
-            "time": round(inst_time, 3),
-            "optimal": False,
-            "obj": None,
-            "sol": None
-        }
-    solver.SetTimeLimit(int((300 - inst_time) * 1000))
-
-    # Solve the model
-    status = solver.Solve()
-    end_time = time.time()
-    inst_time = end_time - start_time
-
-    # Output
-    if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
-        result = {
-            "time": round(inst_time, 3),
-            "optimal": status == pywraplp.Solver.OPTIMAL,
-            "obj": solver.Objective().Value(),
-            "sol": get_solution(lib, instance, table)
-        }
-    else:
-        result = {
-            "time": round(inst_time, 3),
-            "optimal": status == pywraplp.Solver.OPTIMAL,
-            "obj": None,
-            "sol": None
-        }
-
-    return result
-
-
-def pulp_model(instance):
-    lib = "pulp"
-
-    start_time = time.time()
-
-    # Create model
-    model = pulp.LpProblem("CourierProblem", pulp.LpMinimize)
-
-    # Create variables
-    table = pulp.LpVariable.dicts("table",
-                                  ((k, i, j) for k in range(instance.m) for i in range(instance.origin) for j in
-                                   range(instance.origin)),
-                                  lowBound=0, upBound=1, cat=pulp.LpBinary)
-
-    courier_distance = pulp.LpVariable.dicts("courier_distance", (range(instance.m)), cat=pulp.LpInteger, lowBound=0,
-                                             upBound=instance.max_path)
-
-    # Auxiliary variables to avoid subtours
-    u = {}
-    for k in range(instance.m):
-        for i in range(instance.origin):
-            u[k, i] = pulp.LpVariable(f'u_{k}_{i}', lowBound=1, upBound=instance.origin, cat=pulp.LpInteger)
-
-    # Objective
-    obj = pulp.LpVariable('obj', cat=pulp.LpInteger)
-
-    for k in range(instance.m):
-        model += courier_distance[k] == pulp.lpSum(
-            instance.distances[i][j] * table[k, i, j] for i in range(instance.origin) for j in range(instance.origin))
-
-    # Upper and lower bounds
-    model += obj <= instance.max_path
-    model += obj >= instance.min_path
-
-    for k in range(instance.m):
-        model += obj >= courier_distance[k]
-
-    # Constraints
-    for i in range(instance.origin):
-        for k in range(instance.m):
-            # A courier can't move to the same item
-            model += table[k, i, i] == 0
-            # If an item is reached, it is also left by the same courier
-            model += pulp.lpSum(table[k, i, j] for j in range(instance.origin)) == pulp.lpSum(
-                table[k, j, i] for j in range(instance.origin))
-
-    for j in range(instance.origin - 1):
-        # Every item is delivered
-        model += pulp.lpSum(table[k, i, j] for k in range(instance.m) for i in range(instance.origin)) == 1
-
-    for k in range(instance.m):
-        # Couriers start at the origin and end at the origin
-        model += pulp.lpSum(table[k, instance.origin - 1, j] for j in range(instance.origin - 1)) == 1
-        model += pulp.lpSum(table[k, j, instance.origin - 1] for j in range(instance.origin - 1)) == 1
-
-        # Each courier can carry at most max_load items
-        model += pulp.lpSum(
-            table[k, i, j] * instance.size[j] for i in range(instance.origin) for j in range(instance.origin - 1)) <= \
-                 instance.max_load[k]
-
-        # Each courier must visit at least min_packs items and at most max_path_length items
-        model += pulp.lpSum(
-            table[k, i, j] for i in range(instance.origin) for j in range(instance.origin - 1)) >= instance.min_packs
-        model += pulp.lpSum(table[k, i, j] for i in range(instance.origin) for j in
-                            range(instance.origin - 1)) <= instance.max_path_length
-
-    # If a courier goes for i to j then it cannot go from j to i, except for the origin
-    # (this constraint it is not necessary for the model to work, but check if it improves the solution)
-    for k in range(instance.m):
-        for i in range(instance.origin - 1):
-            for j in range(instance.origin - 1):
-                if i != j:
-                    model += table[k, i, j] + table[k, j, i] <= 1
-
-    # Subtour elimination
-    for k in range(instance.m):
-        for i in range(instance.origin - 1):
-            for j in range(instance.origin - 1):
-                if i != j:
-                    model += u[k, j] - u[k, i] >= 1 - instance.origin * (1 - table[k, i, j])
-
-    # Set the objective
-    model += obj
-
-    end_time = time.time()
-    inst_time = end_time - start_time
-
-    if inst_time >= 300:
-        return {
-            "time": round(inst_time, 3),
-            "optimal": False,
-            "obj": None,
-            "sol": None
-        }
-
-    # Solve the problem
-    solver = pulp.PULP_CBC_CMD(msg=0, timeLimit=int(300 - inst_time))
-    status = model.solve(solver)
-
-    end_time = time.time()
-    inst_time = end_time - start_time
-
-    # Output
-    if status == pulp.LpStatusOptimal or status == pulp.LpStatusNotSolved:
-        result = {
-            "time": round(inst_time, 3),
-            "optimal": status == pulp.LpStatusOptimal,
-            "obj": pulp.value(model.objective),
-            "sol": get_solution(lib, instance, table)
-        }
-    else:
-        result = {
-            "time": round(inst_time, 3),
-            "optimal": status == pulp.LpStatusOptimal,
-            "obj": None,
-            "sol": None
-        }
-
-    return result
-
-
-if __name__ == "__main__":
-
-    # Create directory if it doesn't exist
-    if not os.path.exists("res/MIP"):
-        os.makedirs("res/MIP")
-
-    # Log file
-    log = open("res/MIP/log.txt", "a")
-
-
-    # Print in the log file and in the console
-    def print_log(string):
-        log.write(str(string) + "\n")
-        print(string)
-
-
-    # Print the header
-    print_log(
-        "\n\n---------------------------------------------- LOGGING {} ----------------------------------------------\n\n"
-        .format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
-    # Solve all the instances
-    start_tot_time = time.time()
-    for i in [2]:  # [0,1,2,3,4,5,6,7,8,9,10,12,13,16,19,21]
-        if i < 10:
-            instance = Instance("instances/inst0" + str(i) + ".dat")
+
+from instance import Instance
+
+
+class Abstract_model:
+    def __init__(self, lib: 'str', instance: 'Instance'):
+        self._lib = lib
+        self._start_time = time.time()
+        self._end_time = None
+        self._inst_time = None
+        self._instance = instance
+        self._table = None
+        self._u = {}
+        self._status = None
+        self._result = {}
+
+        self._courier_routes = {k: [] for k in range(instance.m)}
+
+    def _get_solution(self) -> 'list':
+        # Create a dictionary to store the routes for each courier
+        self._courier_routes = {k: [] for k in range(self._instance.m)}
+
+        # Extract and populate courier routes
+        for k in range(self._instance.m):
+            if self._lib == "mip":
+                self._courier_routes[k] = [[i, j] for i in range(self._instance.origin) for j in
+                                           range(self._instance.origin) if
+                                           self._table[k, i, j].x == 1]
+
+            elif self._lib == "ortools":
+                self._courier_routes[k] = [[i, j] for i in range(self._instance.origin) for j in
+                                           range(self._instance.origin) if
+                                           self._table[k, i, j].solution_value() == 1]
+            elif self._lib == "pulp":
+                self._courier_routes[k] = [[i, j] for i in range(self._instance.origin) for j in
+                                           range(self._instance.origin) if
+                                           self._table[k, i, j].value() == 1]
+            elif self._lib == "z3":
+                self._courier_routes[k] = [[i, j] for i in range(self._instance.origin) for j in
+                                           range(self._instance.origin) if
+                                           self._table[k][i][j]]
+
+        # Reorder the routes to start from the origin
+        for k in range(self._instance.m):
+            origin_index = next(
+                (i for i, route in enumerate(self._courier_routes[k]) if route[0] == self._instance.origin - 1),
+                None)
+            if origin_index is not None:
+                self._courier_routes[k] = self._courier_routes[k][origin_index:] + self._courier_routes[k][:origin_index]
+
+        # Reorder it in a way that the first element of the tuple I is the second element of the tuple i-1
+        for k in range(self._instance.m):
+            for i in range(1, len(self._courier_routes[k])):
+                if self._courier_routes[k][i][0] != self._courier_routes[k][i - 1][1]:
+                    for j in range(i + 1, len(self._courier_routes[k])):
+                        if self._courier_routes[k][i][0] == self._courier_routes[k][j][1]:
+                            self._courier_routes[k][i], self._courier_routes[k][j] = self._courier_routes[k][j], self._courier_routes[k][i]
+                            break
+
+        # Remove instance.origin - 1 from the routes
+        for k in range(self._instance.m):
+            self._courier_routes[k] = [route[0] for route in self._courier_routes[k]]
+            if len(self._courier_routes[k]) > 0:
+                self._courier_routes[k].pop(0)
+
+        # Create a list to store the routes for each courier
+        routes = [self._courier_routes[k] for k in range(self._instance.m)]
+
+        # print(routes)
+        return routes
+
+    def get_result(self) -> dict:
+        return self._result
+
+
+class Mip_model(Abstract_model):
+    def __init__(self, lib: 'str', i: 'Instance', param, h: 'bool' = False, verbose: 'bool' = False):
+        super().__init__(lib, i)
+        self._table = {}
+        self.__param = param
+        self.__h = h
+
+        # Create model
+        self.__model = mip.Model(solver_name=mip.CBC)
+
+        # Create variables
+        self._table = {}
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin):
+                for j in range(self._instance.origin):
+                    self._table[k, i, j] = self.__model.add_var(var_type=mip.INTEGER, name=f'table_{k}_{i}_{j}')
+
+        self.__courier_distance = [self.__model.add_var(var_type=mip.INTEGER, name=f'courier_distance_{k}') for k in
+                                   range(self._instance.m)]
+
+        # Auxiliary variables to avoid sub-tours
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin):
+                self._u[k, i] = self.__model.add_var(var_type=mip.INTEGER, lb=1, ub=self._instance.origin,
+                                                     name=f'u_{k}_{i}')
+
+        if not verbose:
+            self.__model.verbose = 0
+
+    @staticmethod
+    def clark_wright_savings(distances: 'list', capacity: int):
+        # Calculate savings for all pairs of nodes
+        savings = []
+        for i in range(1, len(distances)):
+            for j in range(i + 1, len(distances)):
+                savings.append((i, j, distances[0][i] + distances[0][j] - distances[i][j]))
+
+        # Sort savings in descending order
+        savings.sort(key=lambda x: x[2], reverse=True)
+
+        # Initialize routes
+        routes = [[0] for _ in range(len(distances))]
+        used_capacity = [0] * len(distances)
+
+        # Greedily assign customers to routes
+        for i, j, s in savings:
+            route_i = None
+            route_j = None
+            for r in range(len(routes)):
+                if i in routes[r]:
+                    route_i = r
+                if j in routes[r]:
+                    route_j = r
+            if route_i is not None and route_j is not None and route_i != route_j:
+                if used_capacity[route_i] + used_capacity[route_j] + distances[i][j] <= capacity:
+                    routes[route_i].remove(i)
+                    routes[route_j].remove(j)
+                    routes[route_i] += [i, j]
+                    used_capacity[route_i] += distances[i][j]
+                    used_capacity[route_j] += distances[i][j]
+
+        return routes
+
+    def solve(self) -> None:
+
+        # Objective
+        obj = self.__model.add_var(var_type=mip.INTEGER, name='obj')
+
+        for k in range(self._instance.m):
+            self.__model += self.__courier_distance[k] == mip.xsum(
+                self._instance.distances[i][j] * self._table[k, i, j] for i in range(self._instance.origin) for j in
+                range(self._instance.origin))
+
+        # Upper and lower bounds
+        self.__model += obj <= self._instance.max_path
+        self.__model += obj >= self._instance.min_path
+
+        for k in range(self._instance.m):
+            self.__model += obj >= self.__courier_distance[k]
+
+        self.__add_constraint()
+
+        # Set the objective
+        self.__model.objective = mip.minimize(obj)
+
+        # Parameters
+        # model.emphasis = 2  # Set to 1 or 2 to get progressively better solutions
+        self.__model.cuts = self.__param  # Enable Gomory cuts
+        # model.heuristics = 1  # Enable simple rounding heuristic
+        # model.pump_passes = 1  # Perform one pass of diving heuristics
+        # model.probing_level = 3  # Enable probing
+        # model.rins = 1  # Enable RINS heuristic
+        self.__model.threads = multiprocessing.cpu_count()
+
+        if self.__h:
+            # Call the Clark and Wright Savings Algorithm
+            initial_routes = self.clark_wright_savings(self._instance.distances, self._instance.max_load[0])
+
+            # Initialize routes using Clark and Wright Savings Algorithm
+            for k, route in enumerate(initial_routes):
+                for i, j in zip(route, route[1:]):
+                    self._table[k, i, j].start = 1
+
+            print('Using warm start CWS: Initial solution found in {} seconds'.format(time.time() - self._start_time))
+
+        self._end_time = time.time()
+        self._inst_time = self._end_time - self._start_time
+        self._status = self.__model.optimize(max_seconds=int(300 - self._inst_time))
+
+        # Output
+        if self._status == mip.OptimizationStatus.OPTIMAL or self._status == mip.OptimizationStatus.FEASIBLE:
+            self._result['time'] = round(self._inst_time, 3)
+            self._result['optimal'] = self._status == mip.OptimizationStatus.OPTIMAL
+            self._result['obj'] = self.__model.objective_value
+            self._result['sol'] = self._get_solution()
+
         else:
-            instance = Instance("instances/inst" + str(i) + ".dat")
+            self._result['time'] = round(self._inst_time, 3)
+            self._result['optimal'] = self._status == mip.OptimizationStatus.OPTIMAL
+            self._result['obj'] = None
+            self._result['sol'] = None
 
-        print_log("\n------------------------------------------------------------------------")
-        print_log("Instance " + str(i))
-        print_log("------------------------------------------------------------------------")
+    def __add_constraint(self) -> None:
 
-        # print("\nMIP MODEL with Clark and Wright Savings Algorithm")
-        # result = mip(instance,h=True)
+        # Constraints
+        for i in range(self._instance.origin):
+            for k in range(self._instance.m):
+                # A courier can't move to the same item
+                self.__model += self._table[k, i, i] == 0
+                # If an item is reached, it is also left by the same courier
+                self.__model += mip.xsum(self._table[k, i, j] for j in range(self._instance.origin)) == mip.xsum(
+                    self._table[k, j, i] for j in range(self._instance.origin))
 
-        print_log("\nOR MODEL")
-        result = or_model(instance)
-        print_log(result)
+        # Every item is delivered
+        for j in range(self._instance.origin - 1):
+            self.__model += mip.xsum(
+                self._table[k, i, j] for k in range(self._instance.m) for i in range(self._instance.origin)) == 1
 
-        print_log("\nPULP MODEL")
-        result = pulp_model(instance)
-        print_log(result)
+        for k in range(self._instance.m):
+            # Couriers start at the origin and end at the origin
+            self.__model += mip.xsum(
+                self._table[k, self._instance.origin - 1, j] for j in range(self._instance.origin - 1)) == 1
+            self.__model += mip.xsum(
+                self._table[k, j, self._instance.origin - 1] for j in range(self._instance.origin - 1)) == 1
 
-        print_log("\nMIP MODEL")
-        result = mip_model(instance, h=False, param=0)
-        print_log(result)
-        save_results("MIP", instance.name, result)
+            # Each courier can carry at most max_load items
+            self.__model += mip.xsum(
+                self._table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
+                range(self._instance.origin - 1)) <= self._instance.max_load[k]
 
-        ## PARAMETER TUNING
-        # for param in [1,2,3]:
-        #    print("\nMIP MODEL with " + str(param) + " cuts")
-        #    mip(instance,param)
+            # Each courier must visit at least min_packs items and at most max_path_length items
+            self.__model += mip.xsum(self._table[k, i, j] for i in range(self._instance.origin) for j in
+                                     range(self._instance.origin - 1)) >= self._instance.min_packs
+            self.__model += mip.xsum(self._table[k, i, j] for i in range(self._instance.origin) for j in
+                                     range(self._instance.origin - 1)) <= self._instance.max_path_length
 
-    end_tot_time = time.time()
-    print_log('\n\nTotal time: {} seconds'.format(round(end_tot_time - start_tot_time, 3)))
+        # If a courier goes for i to j then it cannot go from j to i, except for the origin
+        # (this constraint it is not necessary for the model to work, but check if it improves the solution)
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin - 1):
+                for j in range(self._instance.origin - 1):
+                    if i != j:
+                        self.__model += self._table[k, i, j] + self._table[k, j, i] <= 1
 
-    # Close the log file
-    log.close()
+            # Sub-tour elimination
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin - 1):
+                for j in range(self._instance.origin - 1):
+                    if i != j:
+                        self.__model += self._u[k, j] - self._u[k, i] >= 1 - self._instance.origin * (
+                                1 - self._table[k, i, j])
+
+
+class Or_model(Abstract_model):
+
+    def __init__(self, lib: 'str', instance: 'Instance', solv: 'str' = 'CBC_MIXED_INTEGER_PROGRAMMING'):
+        super().__init__(lib, instance)
+        self._table = {}
+
+        # Create solver
+        self.__solver = pywraplp.Solver.CreateSolver(solv)
+
+        self.__table = {}
+        for k in range(instance.m):
+            for i in range(instance.origin):
+                for j in range(instance.origin):
+                    self.__table[k, i, j] = self.__solver.IntVar(0, 1, f'table_{k}_{i}_{j}')
+
+        self.__courier_distance = [self.__solver.IntVar(0, instance.max_path, f'courier_distance_{k}') for k in
+                                   range(self._instance.m)]
+
+        # Auxiliary variables to avoid sub-tours
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin):
+                self._u[k, i] = self.__solver.IntVar(0, self._instance.origin - 1, f'u_{k}_{i}')
+
+    def solve(self) -> None:
+
+        # Objective
+        obj = self.__solver.IntVar(0, self._instance.max_path, 'obj')
+
+        for k in range(self._instance.m):
+            self.__courier_distance[k] = self.__solver.Sum(
+                self._instance.distances[i][j] * self.__table[k, i, j] for i in range(self._instance.origin) for j in
+                range(self._instance.origin))
+
+        # Upper and lower bounds
+        self.__solver.Add(obj <= self._instance.max_path)
+        self.__solver.Add(obj >= self._instance.min_path)
+
+        for k in range(self._instance.m):
+            self.__solver.Add(obj >= self.__courier_distance[k])
+
+        self.add_constraint()
+
+        # Set the objective
+        self.__solver.Minimize(obj)
+
+        self._end_time = time.time()
+        self._inst_time = self._end_time - self._start_time
+
+        if self._inst_time >= 300:
+            self._result['time'] = round(self._inst_time, 3)
+            self._result['optimal'] = False
+            self._result['obj'] = None
+            self._result['sol'] = None
+
+        # IT IS NECESSARY TO HANDLE THE ABSENCE OF THE RETURN
+        self.__solver.SetTimeLimit(int((300 - self._inst_time) * 1000))
+
+        # Solve the model
+        status = self.__solver.Solve()
+        self._end_time = time.time()
+        self._inst_time = self._end_time - self._start_time
+
+        # Output
+        if ((status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE)
+                and not self._result):
+            self._result['time'] = round(self._inst_time, 3)
+            self._result['optimal'] = status == pywraplp.Solver.OPTIMAL
+            self._result['obj'] = self.__solver.Objective().Value()
+            self._result['sol'] = self._get_solution()
+
+        else:
+
+            self._result['time'] = round(self._inst_time, 3)
+            self._result['optimal'] = status == pywraplp.Solver.OPTIMAL
+            self._result['obj'] = None
+            self._result['sol'] = None
+
+    def add_constraint(self) -> None:
+        # Constraints
+        for i in range(self._instance.origin):
+            for k in range(self._instance.m):
+                # A courier can't move to the same item
+                self.__solver.Add(self.__table[k, i, i] == 0)
+                # If an item is reached, it is also left by the same courier
+                self.__solver.Add(self.__solver.Sum(
+                    self.__table[k, i, j] for j in range(self._instance.origin)) == self.__solver.Sum(
+                    self.__table[k, j, i] for j in range(self._instance.origin)))
+
+        for j in range(self._instance.origin - 1):
+            # Every item is delivered
+            self.__solver.Add(self.__solver.Sum(
+                self.__table[k, i, j] for k in range(self._instance.m) for i in range(self._instance.origin)) == 1)
+
+        for k in range(self._instance.m):
+            # Couriers start at the origin and end at the origin
+            self.__solver.Add(self.__solver.Sum(
+                self.__table[k, self._instance.origin - 1, j] for j in range(self._instance.origin - 1)) == 1)
+            self.__solver.Add(self.__solver.Sum(
+                self.__table[k, j, self._instance.origin - 1] for j in range(self._instance.origin - 1)) == 1)
+
+            # Each courier can carry at most max_load items
+            self.__solver.Add(self.__solver.Sum(
+                self.__table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
+                range(self._instance.origin - 1)) <= self._instance.max_load[k])
+
+            # Each courier must visit at least min_packs items and at most max_path_length items
+            self.__solver.Add(self.__solver.Sum(self.__table[k, i, j] for i in range(self._instance.origin) for j in
+                                                range(self._instance.origin - 1)) >= self._instance.min_packs)
+            self.__solver.Add(self.__solver.Sum(self.__table[k, i, j] for i in range(self._instance.origin) for j in
+                                                range(self._instance.origin - 1)) <= self._instance.max_path_length)
+
+        # If a courier goes for i to j then it cannot go from j to i, except for the origin
+        # (this constraint it is not necessary for the model to work, but check if it improves the solution)
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin - 1):
+                for j in range(self._instance.origin - 1):
+                    if i != j:
+                        self.__solver.Add(self.__table[k, i, j] + self.__table[k, j, i] <= 1)
+
+        # Sub-tour elimination
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin - 1):
+                for j in range(self._instance.origin - 1):
+                    if i != j:
+                        self.__solver.Add(
+                            self._u[k, j] >= self._u[k, i] + 1 - self._instance.origin * (1 - self.__table[k, i, j]))
+
+
+class Pulp_model(Abstract_model):
+
+    def __init__(self, lib: 'str', instance: 'Instance'):
+        super().__init__(lib, instance)
+        self._table = {}
+
+        # Create model
+        self.__model = pulp.LpProblem("CourierProblem", pulp.LpMinimize)
+
+        # Create variables
+        self.__table = pulp.LpVariable.dicts("table",
+                                             ((k, i, j) for k in range(instance.m) for i in range(instance.origin) for j
+                                              in
+                                              range(instance.origin)),
+                                             lowBound=0, upBound=1, cat=pulp.LpBinary)
+
+        self.__courier_distance = pulp.LpVariable.dicts("courier_distance", (range(instance.m)), cat=pulp.LpInteger,
+                                                        lowBound=0, upBound=instance.max_path)
+
+        # Auxiliary variables to avoid sub-tours
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin):
+                self._u[k, i] = pulp.LpVariable(f'u_{k}_{i}', lowBound=1, upBound=self._instance.origin,
+                                                cat=pulp.LpInteger)
+
+    def solve(self) -> None:
+        # Objective
+        obj = pulp.LpVariable('obj', cat=pulp.LpInteger)
+
+        for k in range(self._instance.m):
+            self.__model += self.__courier_distance[k] == pulp.lpSum(
+                self._instance.distances[i][j] * self.__table[k, i, j] for i in range(self._instance.origin) for j in
+                range(self._instance.origin))
+
+        # Upper and lower bounds
+        self.__model += obj <= self._instance.max_path
+        self.__model += obj >= self._instance.min_path
+
+        for k in range(self._instance.m):
+            self.__model += obj >= self.__courier_distance[k]
+
+        # Constraints
+        self.add_constraint()
+
+        # Set the objective
+        self.__model += obj
+
+        # Solve the problem
+
+        solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=int(300 - self._inst_time))
+        self._status = self.__model.solve(solver)
+
+        self._end_time = time.time()
+        self._inst_time = self._end_time - self._start_time
+
+        # Output
+        if self._status == pulp.LpStatusOptimal or self._status == pulp.LpStatusNotSolved:
+            self._result['time'] = round(self._inst_time, 3)
+            self._result['optimal'] = self._status == pulp.LpStatusOptimal
+            self._result['obj'] = pulp.value(self.__model.objective)
+            self._result['sol'] = self._get_solution()
+
+        else:
+            self._result['time'] = round(self._inst_time, 3)
+            self._result['optimal'] = self._status == pulp.LpStatusOptimal
+            self._result['obj'] = None
+            self._result['sol'] = None
+
+    def add_constraint(self) -> None:
+        for i in range(self._instance.origin):
+            for k in range(self._instance.m):
+                # A courier can't move to the same item
+                self.__model += self.__table[k, i, i] == 0
+                # If an item is reached, it is also left by the same courier
+                self.__model += pulp.lpSum(self.__table[k, i, j] for j in range(self._instance.origin)) == pulp.lpSum(
+                    self.__table[k, j, i] for j in range(self._instance.origin))
+
+        for j in range(self._instance.origin - 1):
+            # Every item is delivered
+            self.__model += pulp.lpSum(
+                self.__table[k, i, j] for k in range(self._instance.m) for i in range(self._instance.origin)) == 1
+
+        for k in range(self._instance.m):
+            # Couriers start at the origin and end at the origin
+            self.__model += pulp.lpSum(
+                self.__table[k, self._instance.origin - 1, j] for j in range(self._instance.origin - 1)) == 1
+            self.__model += pulp.lpSum(
+                self.__table[k, j, self._instance.origin - 1] for j in range(self._instance.origin - 1)) == 1
+
+            # Each courier can carry at most max_load items
+            self.__model += pulp.lpSum(
+                self.__table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
+                range(self._instance.origin - 1)) <= self._instance.max_load[k]
+
+            # Each courier must visit at least min_packs items and at most max_path_length items
+            self.__model += pulp.lpSum(self.__table[k, i, j] for i in range(self._instance.origin) for j in
+                                       range(self._instance.origin - 1)) >= self._instance.min_packs
+            self.__model += pulp.lpSum(self.__table[k, i, j] for i in range(self._instance.origin) for j in
+                                       range(self._instance.origin - 1)) <= self._instance.max_path_length
+
+        # If a courier goes for i to j then it cannot go from j to i, except for the origin
+        # (this constraint it is not necessary for the model to work, but check if it improves the solution)
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin - 1):
+                for j in range(self._instance.origin - 1):
+                    if i != j:
+                        self.__model += self.__table[k, i, j] + self.__table[k, j, i] <= 1
+
+        # Sub-tour elimination
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin - 1):
+                for j in range(self._instance.origin - 1):
+                    if i != j:
+                        self.__model += self._u[k, j] - self._u[k, i] >= 1 - self._instance.origin * (
+                                1 - self.__table[k, i, j])
