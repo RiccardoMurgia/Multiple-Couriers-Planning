@@ -1,8 +1,7 @@
 import z3
 import time
 
-from models.MIP.mip_model import Abstract_model
-
+from models.Abstract_model import Abstract_model
 from instance import Instance
 
 
@@ -94,7 +93,6 @@ class Z3_smt_model(Abstract_model):
         self._result['sol'] = self._get_solution()
 
         print(type(model[obj]))
-
 
     def add_constraints(self) -> None:
         # Constraints
