@@ -1,4 +1,5 @@
 from models.Cp.model import CpModel
+from models.Cp.solutions import CpSolution
 from models.SAT.SAT_model import Sat_model
 from models.MIP.mip_model import Mip_model, Or_model, Pulp_model
 from models.SMT.smt_model import Z3_smt_model
@@ -10,7 +11,6 @@ import json
 from json_parser import Json_parser
 
 from typing import Union
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--configuration_file", type=str)
@@ -64,14 +64,17 @@ def solve_cp(config: 'dict', instances_path: 'str', just_time: 'bool', verbose: 
             print("model built, now solving...")
             solution = solver.solve(config['timeout'], processes=config['processes'])
             result = solution.get_result()
-            json_parser.save_results('CP', instance.name, result)
+            json_parser.save_results('cp', instance.name, result)
             print("<----------------------------------------------->")
             print(f'solution for solver {cp_solver}:')
             print(result)
-            #solution.print(just_time, verbose)
+            # solution.print(just_time, verbose)
+
+            solution.print(just_time, verbose)
 
 
-def solve_sat(config: 'dict', instances_path: 'str', verbose: 'bool', instance_to_solve: Union[list[str], str] = 'all_instances'):
+def solve_sat(config: 'dict', instances_path: 'str', verbose: 'bool',
+              instance_to_solve: Union[list[str], str] = 'all_instances'):
     solver = Sat_model()
     print('loaded sat model')
 
@@ -91,7 +94,8 @@ def solve_sat(config: 'dict', instances_path: 'str', verbose: 'bool', instance_t
             print(solutions[-1])
 
 
-def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool', instance_to_solve: Union[list[str], str] = 'all_instances'):
+def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool',
+              instance_to_solve: Union[list[str], str] = 'all_instances'):
     library = config['library']
 
     if instance_to_solve == 'all_instances':
@@ -124,7 +128,8 @@ def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool', instance_t
                 print(result)
 
 
-def solve_smt(config: 'dict', instances_path: 'str', verbose: 'bool', instance_to_solve: Union[list[str], str] = 'all_instances'):
+def solve_smt(config: 'dict', instances_path: 'str', verbose: 'bool',
+              instance_to_solve: Union[list[str], str] = 'all_instances'):
     library = config['smt']['library']
 
     if instance_to_solve == 'all_instances':
@@ -145,7 +150,6 @@ def solve_smt(config: 'dict', instances_path: 'str', verbose: 'bool', instance_t
             print("model built, now solving...")
             solver.solve()
             result = solver.get_result()
-            print(result)
             json_parser.save_results('SMT', instance.name, result)
             print("<----------------------------------------------->")
             print(f'solution for library {lib}:')

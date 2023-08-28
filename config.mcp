@@ -11,7 +11,7 @@
 	},
 	"sat":{
 		"timeout":300000,
-		"processes":8
+		"processes":1
 	},
     "mip": {
         "library": ["mip", "ortools", "pull"],
