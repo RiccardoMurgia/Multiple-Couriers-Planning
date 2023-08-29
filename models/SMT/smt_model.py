@@ -34,11 +34,16 @@ def z3_smt_model(instance):
     # Auxiliary variables to avoid subtours
     u = []
     for k in range(instance.m):
+        rows = []
         for i in range(instance.origin):
-            u.append(z3.Int(f'u_{k}_{i}'))
-            # Lower and upper bounds on the auxiliary variables
-            solver.add(u[(k * instance.m) + i] >= 0)
-            solver.add(u[(k * instance.m) + i] <= instance.origin - 1)
+            rows.append(z3.Int(f'u_{k}_{i}'))
+        u.append(rows)
+        
+    # Lower and upper bounds on the auxiliary variables
+    for k in range(instance.m):
+        for i in range(instance.origin):
+            solver.add(u[k][i] >= 0)
+            solver.add(u[k][i] <= instance.origin - 1)
 
     obj = z3.Int('obj')
 
@@ -57,27 +62,31 @@ def z3_smt_model(instance):
         solver.add(obj >= courier_distance[k])
 
     # Constraints
-    for i in range(instance.origin):
-        for k in range(instance.m):
+    for k in range(instance.m):
+        for i in range(instance.origin):
             # A courier can't move to the same item
             solver.add(table[k][i][i] == False)
             # If an item is reached, it is also left by the same courier
             solver.add(z3.Sum([table[k][i][j] for j in range(instance.origin)])
                        == z3.Sum([table[k][j][i] for j in range(instance.origin)]))
+            # REDUNDANT
+            solver.add(z3.Or([table[k][i][j] for j in range(instance.origin)]) == z3.Or([table[k][j][i] for j in range(instance.origin)]))
+            solver.add(z3.PbEq([(table[k][i][j],1) for j in range(instance.origin)], 1) == z3.PbEq([(table[k][j][i],1) for j in range(instance.origin)], 1))
 
     for j in range(instance.origin - 1):
         # Every items is delivered using PbEq
-        solver.add(z3.PbEq([(table[k][i][j], 1) for k in range(instance.m) for i in range(instance.origin)], 1))
-
+        solver.add(z3.PbEq([(table[k][i][j],1) for k in range(instance.m) for i in range(instance.origin)], 1))
+        # REDUNDANT
+        solver.add(z3.PbEq([(table[k][j][i],1) for k in range(instance.m) for i in range(instance.origin)], 1)) 
+    
     for k in range(instance.m):
+        
+        # Each courier can carry at most max_load items
+        solver.add(z3.PbLe([(table[k][i][j],instance.size[j]) for i in range(instance.origin) for j in range(instance.origin - 1)], instance.max_load[k]))
+
         # Couriers start at the origin and end at the origin
         solver.add(z3.Sum([table[k][instance.origin - 1][j] for j in range(instance.origin - 1)]) == 1)
         solver.add(z3.Sum([table[k][j][instance.origin - 1] for j in range(instance.origin - 1)]) == 1)
-
-        # Each courier can carry at most max_load items
-        solver.add(z3.Sum(
-            [instance.size[j] * table[k][i][j] for i in range(instance.origin) for j in range(instance.origin - 1)]) <=
-                   instance.max_load[k])
 
         # Each courier must visit at least min_packs items and at most max_path_length items
         solver.add(z3.Sum(
@@ -85,22 +94,19 @@ def z3_smt_model(instance):
         solver.add(z3.Sum([table[k][i][j] for i in range(instance.origin) for j in
                            range(instance.origin - 1)]) <= instance.max_path_length)
 
-    # If a courier goes for i to j then it cannot go from j to i, except for the origin 
-    # (this constraint it is not necessary for the model to work, but check if it improves the solution)
+    
     for k in range(instance.m):
         for i in range(instance.origin - 1):
             for j in range(instance.origin - 1):
                 if i != j:
-                    # solver.add(z3.If(table[k][i][j],1,0) + z3.If(table[k][j][i],1,0) <= 1)
-                    solver.add(z3.PbLe([(table[k][i][j], 1), (table[k][j][i], 1)], 1))
+                    # If a courier goes for i to j then it cannot go from j to i, except for the origin
+                    solver.add(z3.Not(z3.And(table[k][i][j], table[k][j][i])))
+                    
+                    # Subtour elimination
+                    solver.add(u[k][j] 
+                               >= u[k][i] + 1 - instance.origin * (1 - z3.If(table[k][i][j], 1, 0)))
 
-    # Subtour elimination
-    for k in range(instance.m):
-        for i in range(instance.origin - 1):
-            for j in range(instance.origin - 1):
-                if i != j:
-                    solver.add(u[(k * instance.m) + j] >= u[(k * instance.m) + i] + 1 - instance.origin * (
-                                1 - z3.If(table[k][i][j], 1, 0)))
+                    
 
     end_time = time.time()
     inst_time = end_time - start_time
