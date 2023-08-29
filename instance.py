@@ -1,4 +1,5 @@
 import numpy as np
+from time import time
 
 
 class Instance:
@@ -23,12 +24,15 @@ class Instance:
 
         self.optimal_paths = None
         self.min_path = 0
-        self.max_path_length = self.n - self.m + 3
+        start_time = time()
+        self.max_packs = self.n-self.m+3
         self.compute_bounds()
-        self.number_of_origin_stops = int((self.max_path_length * self.m) - self.n)
-        self.origin = int(self.n + 1)
-        self.n_array = [i + 1 for i in range(self.n + 1)]
+        self.number_of_origin_stops = int((self.max_packs * self.m) - self.n)
+        self.origin = int(self.n+1)
+        self.n_array = [i+1 for i in range(self.n + 1)]
         self.count_array = [1 for _ in range(self.n)] + [self.number_of_origin_stops]
+        self.presolve_time = time() - start_time
+        print(self.presolve_time)
 
     def compute_bounds(self) -> 'None':
         o = self.n
@@ -79,7 +83,7 @@ class Instance:
 
         self.max_packs = k
 
-        self.max_path_length = min(self.max_packs + 2, self.max_path_length)
+        self.max_packs = min(self.max_packs + 2, self.max_packs)
 
         def max_select(nodes):
             dist = np.copy(self.distances[nodes[-1], :])
@@ -102,7 +106,7 @@ size = {self.size};
 dist = [|{distaces_str}|];
 min_path = {self.min_path};
 max_path = {self.max_path};
-max_path_length = {self.max_path_length};
+max_path_length = {self.max_packs};
 origin  = {self.origin};
 n_array = {self.n_array};
 count_array = {self.count_array};
