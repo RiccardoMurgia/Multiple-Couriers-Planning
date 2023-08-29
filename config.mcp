@@ -1,8 +1,8 @@
 {
 	"instances_path":"./instances/",
     "usage_mode":{
-                "instances_to_solve": "[inst00.dat, inst01.dat]",
-                "models_to_use":["cp", "mip"]
+                "instances_to_solve": "[inst07.dat]",
+                "models_to_use":["smt"]
     },
 	"cp":{
 		"solvers":["gecode"],
@@ -14,7 +14,7 @@
 		"processes":1
 	},
     "mip": {
-        "library": ["mip", "ortools", "pull"],
+        "library": ["pulp"],
         "timeout": 300000,
         "processes": 8
 

@@ -1,6 +1,6 @@
 {
     "MIP": {
-        "time": 0.003,
+        "time": 0.006,
         "optimal": true,
         "obj": 14.0,
         "sol": [

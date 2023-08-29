@@ -96,14 +96,14 @@ def solve_sat(config: 'dict', instances_path: 'str', verbose: 'bool',
 
 def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
-    library = config['library']
+    libraries = config['library']
 
     if instance_to_solve == 'all_instances':
         instances = load_all_instances(instances_path)
     else:
         instances = load_specific_instances(instances_path, instance_to_solve)
 
-    for lib in library:
+    for lib in libraries:
         print(f'loaded Mip model implemented with library: {lib}')
         for instance in instances:
             print("============================================================================")
@@ -130,7 +130,7 @@ def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool',
 
 def solve_smt(config: 'dict', instances_path: 'str', verbose: 'bool',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
-    library = config['smt']['library']
+    library = config['library']
 
     if instance_to_solve == 'all_instances':
         instances = load_all_instances(instances_path)

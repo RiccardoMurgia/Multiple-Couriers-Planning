@@ -32,7 +32,6 @@ class Instance:
         self.n_array = [i+1 for i in range(self.n + 1)]
         self.count_array = [1 for _ in range(self.n)] + [self.number_of_origin_stops]
         self.presolve_time = time() - start_time
-        print(self.presolve_time)
 
     def compute_bounds(self) -> 'None':
         o = self.n
