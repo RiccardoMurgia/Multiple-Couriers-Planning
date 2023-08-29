@@ -192,11 +192,10 @@ class Or_model(Abstract_model):
         # Create solver
         self.__solver = pywraplp.Solver.CreateSolver(solv)
 
-        self.__table = {}
-        for k in range(instance.m):
-            for i in range(instance.origin):
-                for j in range(instance.origin):
-                    self.__table[k, i, j] = self.__solver.IntVar(0, 1, f'table_{k}_{i}_{j}')
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin):
+                for j in range(self._instance.origin):
+                    self._table[k, i, j] = self.__solver.IntVar(0, 1, f'table_{k}_{i}_{j}')
 
         self.__courier_distance = [self.__solver.IntVar(0, instance.max_path, f'courier_distance_{k}') for k in
                                    range(self._instance.m)]
@@ -213,7 +212,7 @@ class Or_model(Abstract_model):
 
         for k in range(self._instance.m):
             self.__courier_distance[k] = self.__solver.Sum(
-                self._instance.distances[i][j] * self.__table[k, i, j] for i in range(self._instance.origin) for j in
+                self._instance.distances[i][j] * self._table[k, i, j] for i in range(self._instance.origin) for j in
                 range(self._instance.origin))
 
         # Upper and lower bounds
@@ -265,33 +264,33 @@ class Or_model(Abstract_model):
         for i in range(self._instance.origin):
             for k in range(self._instance.m):
                 # A courier can't move to the same item
-                self.__solver.Add(self.__table[k, i, i] == 0)
+                self.__solver.Add(self._table[k, i, i] == 0)
                 # If an item is reached, it is also left by the same courier
                 self.__solver.Add(self.__solver.Sum(
-                    self.__table[k, i, j] for j in range(self._instance.origin)) == self.__solver.Sum(
-                    self.__table[k, j, i] for j in range(self._instance.origin)))
+                    self._table[k, i, j] for j in range(self._instance.origin)) == self.__solver.Sum(
+                    self._table[k, j, i] for j in range(self._instance.origin)))
 
         for j in range(self._instance.origin - 1):
             # Every item is delivered
             self.__solver.Add(self.__solver.Sum(
-                self.__table[k, i, j] for k in range(self._instance.m) for i in range(self._instance.origin)) == 1)
+                self._table[k, i, j] for k in range(self._instance.m) for i in range(self._instance.origin)) == 1)
 
         for k in range(self._instance.m):
             # Couriers start at the origin and end at the origin
             self.__solver.Add(self.__solver.Sum(
-                self.__table[k, self._instance.origin - 1, j] for j in range(self._instance.origin - 1)) == 1)
+                self._table[k, self._instance.origin - 1, j] for j in range(self._instance.origin - 1)) == 1)
             self.__solver.Add(self.__solver.Sum(
-                self.__table[k, j, self._instance.origin - 1] for j in range(self._instance.origin - 1)) == 1)
+                self._table[k, j, self._instance.origin - 1] for j in range(self._instance.origin - 1)) == 1)
 
             # Each courier can carry at most max_load items
             self.__solver.Add(self.__solver.Sum(
-                self.__table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
+                self._table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
                 range(self._instance.origin - 1)) <= self._instance.max_load[k])
 
             # Each courier must visit at least min_packs items and at most max_path_length items
-            self.__solver.Add(self.__solver.Sum(self.__table[k, i, j] for i in range(self._instance.origin) for j in
+            self.__solver.Add(self.__solver.Sum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                                 range(self._instance.origin - 1)) >= self._instance.min_packs)
-            self.__solver.Add(self.__solver.Sum(self.__table[k, i, j] for i in range(self._instance.origin) for j in
+            self.__solver.Add(self.__solver.Sum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                                 range(self._instance.origin - 1)) <= self._instance.max_path_length)
 
         # If a courier goes for i to j then it cannot go from j to i, except for the origin
@@ -300,7 +299,7 @@ class Or_model(Abstract_model):
             for i in range(self._instance.origin - 1):
                 for j in range(self._instance.origin - 1):
                     if i != j:
-                        self.__solver.Add(self.__table[k, i, j] + self.__table[k, j, i] <= 1)
+                        self.__solver.Add(self._table[k, i, j] + self._table[k, j, i] <= 1)
 
         # Sub-tour elimination
         for k in range(self._instance.m):
@@ -308,7 +307,7 @@ class Or_model(Abstract_model):
                 for j in range(self._instance.origin - 1):
                     if i != j:
                         self.__solver.Add(
-                            self._u[k, j] >= self._u[k, i] + 1 - self._instance.origin * (1 - self.__table[k, i, j]))
+                            self._u[k, j] >= self._u[k, i] + 1 - self._instance.origin * (1 - self._table[k, i, j]))
 
 
 class Pulp_model(Abstract_model):
@@ -321,7 +320,7 @@ class Pulp_model(Abstract_model):
         self.__model = pulp.LpProblem("CourierProblem", pulp.LpMinimize)
 
         # Create variables
-        self.__table = pulp.LpVariable.dicts("table",
+        self._table = pulp.LpVariable.dicts("table",
                                              ((k, i, j) for k in range(instance.m) for i in range(instance.origin) for j
                                               in
                                               range(instance.origin)),
@@ -342,7 +341,7 @@ class Pulp_model(Abstract_model):
 
         for k in range(self._instance.m):
             self.__model += self.__courier_distance[k] == pulp.lpSum(
-                self._instance.distances[i][j] * self.__table[k, i, j] for i in range(self._instance.origin) for j in
+                self._instance.distances[i][j] * self._table[k, i, j] for i in range(self._instance.origin) for j in
                 range(self._instance.origin))
 
         # Upper and lower bounds
@@ -359,12 +358,11 @@ class Pulp_model(Abstract_model):
         self.__model += obj
 
         # Solve the problem
+        self._end_time = time.time()
+        self._inst_time = self._end_time - self._start_time
 
         solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=int(300 - self._inst_time))
         self._status = self.__model.solve(solver)
-
-        self._end_time = time.time()
-        self._inst_time = self._end_time - self._start_time
 
         # Output
         if self._status == pulp.LpStatusOptimal or self._status == pulp.LpStatusNotSolved:
@@ -383,32 +381,32 @@ class Pulp_model(Abstract_model):
         for i in range(self._instance.origin):
             for k in range(self._instance.m):
                 # A courier can't move to the same item
-                self.__model += self.__table[k, i, i] == 0
+                self.__model += self._table[k, i, i] == 0
                 # If an item is reached, it is also left by the same courier
-                self.__model += pulp.lpSum(self.__table[k, i, j] for j in range(self._instance.origin)) == pulp.lpSum(
-                    self.__table[k, j, i] for j in range(self._instance.origin))
+                self.__model += pulp.lpSum(self._table[k, i, j] for j in range(self._instance.origin)) == pulp.lpSum(
+                    self._table[k, j, i] for j in range(self._instance.origin))
 
         for j in range(self._instance.origin - 1):
             # Every item is delivered
             self.__model += pulp.lpSum(
-                self.__table[k, i, j] for k in range(self._instance.m) for i in range(self._instance.origin)) == 1
+                self._table[k, i, j] for k in range(self._instance.m) for i in range(self._instance.origin)) == 1
 
         for k in range(self._instance.m):
             # Couriers start at the origin and end at the origin
             self.__model += pulp.lpSum(
-                self.__table[k, self._instance.origin - 1, j] for j in range(self._instance.origin - 1)) == 1
+                self._table[k, self._instance.origin - 1, j] for j in range(self._instance.origin - 1)) == 1
             self.__model += pulp.lpSum(
-                self.__table[k, j, self._instance.origin - 1] for j in range(self._instance.origin - 1)) == 1
+                self._table[k, j, self._instance.origin - 1] for j in range(self._instance.origin - 1)) == 1
 
             # Each courier can carry at most max_load items
             self.__model += pulp.lpSum(
-                self.__table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
+                self._table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
                 range(self._instance.origin - 1)) <= self._instance.max_load[k]
 
             # Each courier must visit at least min_packs items and at most max_path_length items
-            self.__model += pulp.lpSum(self.__table[k, i, j] for i in range(self._instance.origin) for j in
+            self.__model += pulp.lpSum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                        range(self._instance.origin - 1)) >= self._instance.min_packs
-            self.__model += pulp.lpSum(self.__table[k, i, j] for i in range(self._instance.origin) for j in
+            self.__model += pulp.lpSum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                        range(self._instance.origin - 1)) <= self._instance.max_path_length
 
         # If a courier goes for i to j then it cannot go from j to i, except for the origin
@@ -417,7 +415,7 @@ class Pulp_model(Abstract_model):
             for i in range(self._instance.origin - 1):
                 for j in range(self._instance.origin - 1):
                     if i != j:
-                        self.__model += self.__table[k, i, j] + self.__table[k, j, i] <= 1
+                        self.__model += self._table[k, i, j] + self._table[k, j, i] <= 1
 
         # Sub-tour elimination
         for k in range(self._instance.m):
@@ -425,4 +423,4 @@ class Pulp_model(Abstract_model):
                 for j in range(self._instance.origin - 1):
                     if i != j:
                         self.__model += self._u[k, j] - self._u[k, i] >= 1 - self._instance.origin * (
-                                1 - self.__table[k, i, j])
+                                1 - self._table[k, i, j])
