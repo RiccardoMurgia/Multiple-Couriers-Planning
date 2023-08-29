@@ -19,7 +19,6 @@ class Abstract_model:
 
     def _get_solution(self) -> 'list':
         # Create a dictionary to store the routes for each courier
-        self._courier_routes = {k: [] for k in range(self._instance.m)}
 
         # Extract and populate courier routes
         for k in range(self._instance.m):

@@ -49,6 +49,7 @@ def load_specific_instances(instances_path: 'str', instance_to_solve: 'list[str]
 def solve_cp(config: 'dict', instances_path: 'str', just_time: 'bool', verbose: 'bool',
              instance_to_solve: Union[list[str], str] = 'all_instances'):
     solver = CpModel('./models/Cp/Cp_model.mzn')
+    print("============================================================================")
     print(f'loaded models {solver.model_name}')
 
     if instance_to_solve == 'all_instances':
@@ -140,7 +141,6 @@ def solve_smt(config: 'dict', instances_path: 'str', verbose: 'bool',
     for lib in library:
         print(f'loaded Mip model implemented with library: {lib}')
         for instance in instances:
-            print("============================================================================")
             print(f"solving instance {instance.name}")
             print("building model...")
             solver = None
