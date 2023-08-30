@@ -69,7 +69,7 @@ class Z3_smt_model(Abstract_model):
             self._result['sol'] = None
 
         self._solver.set("timeout", int(300 - self._inst_time) * 1000)
-
+        self._solver.set("threads", 8)
         while self._solver.check() == z3.sat:
             model = self._solver.model()
             self._solver.add(obj < model[obj])
@@ -127,7 +127,7 @@ class Z3_smt_model(Abstract_model):
                 [self._table[k][i][j] for i in range(self._instance.origin) for j in
                  range(self._instance.origin - 1)]) >= self._instance.min_packs)
             self._solver.add(z3.Sum([self._table[k][i][j] for i in range(self._instance.origin) for j in
-                                     range(self._instance.origin - 1)]) <= self._instance.max_path_length)
+                                     range(self._instance.origin - 1)]) <= self._instance.max_packs)
 
         # If a courier goes for i to j then it cannot go from j to i, except for the origin
         # (this constraint it is not necessary for the model to work, but check if it improves the solution)

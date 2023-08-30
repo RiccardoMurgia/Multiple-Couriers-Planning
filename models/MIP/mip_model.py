@@ -116,7 +116,7 @@ class Mip_model(Abstract_model):
 
         self._end_time = time.time()
         self._inst_time = self._end_time - self._start_time
-        self._status = self.__model.optimize(max_seconds=int(300 - self._inst_time))
+        self._status = self.__model.optimize(max_seconds=int(300 - self._inst_time - self._instance.presolve_time))
 
         # Output
         if self._status == mip.OptimizationStatus.OPTIMAL or self._status == mip.OptimizationStatus.FEASIBLE:
@@ -163,7 +163,7 @@ class Mip_model(Abstract_model):
             self.__model += mip.xsum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                      range(self._instance.origin - 1)) >= self._instance.min_packs
             self.__model += mip.xsum(self._table[k, i, j] for i in range(self._instance.origin) for j in
-                                     range(self._instance.origin - 1)) <= self._instance.max_path_length
+                                     range(self._instance.origin - 1)) <= self._instance.max_packs
 
         # If a courier goes for i to j then it cannot go from j to i, except for the origin
         # (this constraint it is not necessary for the model to work, but check if it improves the solution)
@@ -236,7 +236,7 @@ class Or_model(Abstract_model):
             self._result['sol'] = None
 
         # IT IS NECESSARY TO HANDLE THE ABSENCE OF THE RETURN
-        self.__solver.SetTimeLimit(int((300 - self._inst_time) * 1000))
+        self.__solver.SetTimeLimit(int((300 - self._inst_time - self._instance.presolve_time) * 1000))
 
         # Solve the model
         status = self.__solver.Solve()
@@ -286,7 +286,7 @@ class Or_model(Abstract_model):
                 self._table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
                 range(self._instance.origin - 1)) <= self._instance.max_load[k])
 
-            # Each courier must visit at least min_packs items and at most max_path_length items
+            # Each courier must visit at least min_packs items and at most max_packs items
             self.__solver.Add(self.__solver.Sum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                                 range(self._instance.origin - 1)) >= self._instance.min_packs)
             self.__solver.Add(self.__solver.Sum(self._table[k, i, j] for i in range(self._instance.origin) for j in
@@ -317,7 +317,7 @@ class Pulp_model(Abstract_model):
 
         # Create model
         self.__model = pulp.LpProblem("CourierProblem", pulp.LpMinimize)
-
+        self._inst_time = 0
         # Create variables
         self._table = pulp.LpVariable.dicts("table",
                                             ((k, i, j) for k in range(instance.m) for i in range(instance.origin) for j
@@ -366,12 +366,9 @@ class Pulp_model(Abstract_model):
             self._result['sol'] = None
 
         # Solve the problem
-        self.__solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=int(300 - self._inst_time))
-
-        self._end_time = time.time()
-        self._inst_time = self._end_time - self._start_time
-
-        self._status = self.__model.solve(self.__solver)
+        print(self._instance.presolve_time, self._inst_time)
+        solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=int(300 - self._inst_time - self._instance.presolve_time))
+        self._status = self.__model.solve(solver)
 
         # Output
         if self._status == pulp.LpStatusOptimal or self._status == pulp.LpStatusNotSolved:
@@ -412,7 +409,7 @@ class Pulp_model(Abstract_model):
                 self._table[k, i, j] * self._instance.size[j] for i in range(self._instance.origin) for j in
                 range(self._instance.origin - 1)) <= self._instance.max_load[k]
 
-            # Each courier must visit at least min_packs items and at most max_path_length items
+            # Each courier must visit at least min_packs items and at most max_packs items
             self.__model += pulp.lpSum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                        range(self._instance.origin - 1)) >= self._instance.min_packs
             self.__model += pulp.lpSum(self._table[k, i, j] for i in range(self._instance.origin) for j in

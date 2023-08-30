@@ -1,8 +1,8 @@
 {
-    "MIP": {
-        "time": 0.001,
+    "SMT": {
+        "time": 0.066,
         "optimal": true,
-        "obj": 206.0,
+        "obj": 206,
         "sol": [
             [
                 1
