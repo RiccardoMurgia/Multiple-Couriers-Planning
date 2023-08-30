@@ -95,12 +95,7 @@ class Mip_model(Abstract_model):
         self.__model.objective = mip.minimize(obj)
 
         # Parameters
-        # model.emphasis = 2  # Set to 1 or 2 to get progressively better solutions
         self.__model.cuts = self.__param  # Enable Gomory cuts
-        # model.heuristics = 1  # Enable simple rounding heuristic
-        # model.pump_passes = 1  # Perform one pass of diving heuristics
-        # model.probing_level = 3  # Enable probing
-        # model.rins = 1  # Enable RINS heuristic
         self.__model.threads = processes
 
         if self.__h:
@@ -181,7 +176,12 @@ class Mip_model(Abstract_model):
                         self.__model += self._u[k, j] - self._u[k, i] >= 1 - self._instance.origin * (
                                 1 - self._table[k, i, j])
 
+    def save(self, path: 'str') -> None:
+        self.__model.write(path)
 
+    def update(self, path: 'str') -> None:
+        self.__model.read(path)
+        
 class Or_model(Abstract_model):
 
     def __init__(self, lib: 'str', instance: 'Instance', solv: 'str' = 'CBC_MIXED_INTEGER_PROGRAMMING'):
@@ -259,6 +259,7 @@ class Or_model(Abstract_model):
             self._result['sol'] = None
 
     def add_constraint(self) -> None:
+
         # Constraints
         for i in range(self._instance.origin):
             for k in range(self._instance.m):
@@ -308,6 +309,8 @@ class Or_model(Abstract_model):
                         self.__solver.Add(
                             self._u[k, j] >= self._u[k, i] + 1 - self._instance.origin * (1 - self._table[k, i, j]))
 
+    def save(self, path: 'str') -> None:
+        self.__solver.ExportModelAsLpFormat(False, path)
 
 class Pulp_model(Abstract_model):
 
@@ -430,3 +433,11 @@ class Pulp_model(Abstract_model):
                     if i != j:
                         self.__model += self._u[k, j] - self._u[k, i] >= 1 - self._instance.origin * (
                                 1 - self._table[k, i, j])
+
+    def save(self, path: 'str') -> None:
+        self.__model.writeMPS(path)
+        #self.__model.writeLP(path)
+
+    def update(self, path: 'str') -> None:
+        var, self.__model = pulp.LpProblem.fromMPS(path) 
+        #var, self.__model = pulp.LpProblem.from_lp(path)
