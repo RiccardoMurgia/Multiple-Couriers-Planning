@@ -1,5 +1,6 @@
 import z3
 import time
+import numpy as np
 
 from models.Abstract_model import Abstract_model
 from instance import Instance
@@ -12,20 +13,12 @@ class Z3_smt_model(Abstract_model):
         self._model = None
         self._optimal_solution_found = False
 
-        self._table = []
-
         self._solver = z3.Solver()
 
-        for k in range(self._instance.m):
-            rows = []
-            for i in range(instance.origin):
-                cols = []
-                for j in range(self._instance.origin):
-                    cols.append(z3.Bool(f'table_{k}_{i}_{j}'))
-                rows.append(cols)
-            self._table.append(rows)
+        self._table = np.array([[[z3.Bool(f'table_{k}_{i}_{j}') for j in range(self._instance.origin)] 
+                                 for i in range(self._instance.origin)] for k in range(self._instance.m)])
 
-        self._courier_distance = [z3.Int(f'courier_distance_{k}') for k in range(self._instance.m)]
+        self._courier_distance = np.array([z3.Int(f'courier_distance_{k}') for k in range(self._instance.m)])
 
         # Lower and upper bounds on the courier distance for each courier
         for k in range(self._instance.m):
@@ -33,12 +26,7 @@ class Z3_smt_model(Abstract_model):
             self._solver.add(self._courier_distance[k] <= self._instance.max_path)
 
         # Auxiliary variables to avoid Sub-tours
-        self._u = []
-        for k in range(instance.m):
-            rows = []
-            for i in range(instance.origin):
-                rows.append(z3.Int(f'u_{k}_{i}'))
-            self._u.append(rows)
+        self._u = np.array([[z3.Int(f'u_{k}_{i}') for i in range(self._instance.origin)] for k in range(self._instance.m)])
 
         # Lower and upper bounds on the auxiliary variables
         for k in range(instance.m):
@@ -48,17 +36,16 @@ class Z3_smt_model(Abstract_model):
 
     def solve(self) -> None:
         obj = z3.Int('obj')
-        # Upper and lower bounds on the objective
 
+        # Upper and lower bounds on the objective
         self._solver.add(obj <= self._instance.max_path)
         self._solver.add(obj >= self._instance.min_path)
 
         # Calculate the courier distance for each courier
         for k in range(self._instance.m):
             self._courier_distance[k] = z3.Sum(
-                [z3.If(self._table[k][i][j], 1, 0) * self._instance.distances[i][j] for i in
-                 range(self._instance.origin) for j in
-                 range(self._instance.origin)])
+                [z3.If(self._table[k][i][j], 1, 0) * self._instance.distances[i][j] 
+                 for i in range(self._instance.origin) for j in range(self._instance.origin)])
 
         # Objective
         for k in range(self._instance.m):

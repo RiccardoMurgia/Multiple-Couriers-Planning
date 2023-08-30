@@ -1,8 +1,8 @@
 {
 	"instances_path":"./instances/",
     "usage_mode":{
-                "instances_to_solve": "[inst01.dat]",
-                "models_to_use":["mip"]
+                "instances_to_solve": "[inst02.dat]",
+                "models_to_use":["smt"]
     },
 	"cp":{
 		"solvers":["gecode"],
