@@ -9,6 +9,7 @@ class Z3_smt_model(Abstract_model):
 
     def __init__(self, lib: 'str', instance: Instance):
         super().__init__(lib, instance)
+        self._model = None
         self._optimal_solution_found = False
 
         self._table = []
@@ -31,13 +32,19 @@ class Z3_smt_model(Abstract_model):
             self._solver.add(self._courier_distance[k] >= 0)
             self._solver.add(self._courier_distance[k] <= self._instance.max_path)
 
+        # Auxiliary variables to avoid Sub-tours
         self._u = []
         for k in range(instance.m):
+            rows = []
             for i in range(instance.origin):
-                self._u.append(z3.Int(f'u_{k}_{i}'))
-                # Lower and upper bounds on the auxiliary variables
-                self._solver.add(self._u[(k * instance.m) + i] >= 0)
-                self._solver.add(self._u[(k * instance.m) + i] <= instance.origin - 1)
+                rows.append(z3.Int(f'u_{k}_{i}'))
+            self._u.append(rows)
+
+        # Lower and upper bounds on the auxiliary variables
+        for k in range(instance.m):
+            for i in range(instance.origin):
+                self._solver.add(self._u[k][i] >= 0)
+                self._solver.add(self._u[k][i] <= instance.origin - 1)
 
     def solve(self) -> None:
         obj = z3.Int('obj')
@@ -71,8 +78,8 @@ class Z3_smt_model(Abstract_model):
         self._solver.set("timeout", int(300 - self._inst_time) * 1000)
         self._solver.set("threads", 8)
         while self._solver.check() == z3.sat:
-            model = self._solver.model()
-            self._solver.add(obj < model[obj])
+            self._model = self._solver.model()
+            self._solver.add(obj < self._model[obj])
 
             # Check if the solution is optimal
             if self._solver.check() == z3.unsat:
@@ -80,7 +87,7 @@ class Z3_smt_model(Abstract_model):
                 self._inst_time = self._end_time - self._start_time
 
                 # Convert table to a list of lists of booleans
-                self._table = [[[model[self._table[k][i][j]] for j in range(self._instance.origin)] for i in
+                self._table = [[[self._model[self._table[k][i][j]] for j in range(self._instance.origin)] for i in
                                 range(self._instance.origin)] for k
                                in
                                range(self._instance.m)]
@@ -89,60 +96,64 @@ class Z3_smt_model(Abstract_model):
 
         self._result['time'] = round(self._inst_time, 3)
         self._result['optimal'] = self._optimal_solution_found
-        self._result['obj'] = model[obj].as_long()
+        self._result['obj'] = self._model[obj].as_long()
         self._result['sol'] = self._get_solution()
-
-        print(type(model[obj]))
 
     def add_constraints(self) -> None:
         # Constraints
-        for i in range(self._instance.origin):
-            for k in range(self._instance.m):
+        for k in range(self._instance.m):
+            for i in range(self._instance.origin):
                 # A courier can't move to the same item
                 self._solver.add(self._table[k][i][i] == False)
-
                 # If an item is reached, it is also left by the same courier
                 self._solver.add(z3.Sum([self._table[k][i][j] for j in range(self._instance.origin)])
                                  == z3.Sum([self._table[k][j][i] for j in range(self._instance.origin)]))
+                # REDUNDANT
+                self._solver.add(z3.Or([self._table[k][i][j] for j in range(self._instance.origin)]) == z3.Or(
+                    [self._table[k][j][i] for j in range(self._instance.origin)]))
+                self._solver.add(
+                    z3.PbEq([(self._table[k][i][j], 1) for j in range(self._instance.origin)], 1) == z3.PbEq(
+                        [(self._table[k][j][i], 1) for j in range(self._instance.origin)], 1))
 
         for j in range(self._instance.origin - 1):
             # Every item is delivered using PbEq
-            self._solver.add(z3.PbEq(
-                [(self._table[k][i][j], 1) for k in range(self._instance.m) for i in range(self._instance.origin)], 1))
+            self._solver.add(
+                z3.PbEq(
+                    [(self._table[k][i][j], 1) for k in range(self._instance.m) for i in range(self._instance.origin)],
+                    1))
+            # REDUNDANT
+            self._solver.add(
+                z3.PbEq(
+                    [(self._table[k][j][i], 1) for k in range(self._instance.m) for i in range(self._instance.origin)],
+                    1))
 
         for k in range(self._instance.m):
+            # Each courier can carry at most max_load items
+            self._solver.add(
+                z3.PbLe([(self._table[k][i][j], self._instance.size[j]) for i in range(self._instance.origin) for j in
+                         range(self._instance.origin - 1)], self._instance.max_load[k]))
+
             # Couriers start at the origin and end at the origin
             self._solver.add(
                 z3.Sum([self._table[k][self._instance.origin - 1][j] for j in range(self._instance.origin - 1)]) == 1)
             self._solver.add(
                 z3.Sum([self._table[k][j][self._instance.origin - 1] for j in range(self._instance.origin - 1)]) == 1)
 
-            # Each courier can carry at most max_load items
-            self._solver.add(z3.Sum(
-                [self._instance.size[j] * self._table[k][i][j] for i in range(self._instance.origin) for j in
-                 range(self._instance.origin - 1)]) <= self._instance.max_load[k])
-
             # Each courier must visit at least min_packs items and at most max_path_length items
             self._solver.add(z3.Sum(
                 [self._table[k][i][j] for i in range(self._instance.origin) for j in
                  range(self._instance.origin - 1)]) >= self._instance.min_packs)
             self._solver.add(z3.Sum([self._table[k][i][j] for i in range(self._instance.origin) for j in
-                                     range(self._instance.origin - 1)]) <= self._instance.max_packs)
+                                     range(self._instance.origin - 1)]) <= self._instance.max_path)
 
-        # If a courier goes for i to j then it cannot go from j to i, except for the origin
-        # (this constraint it is not necessary for the model to work, but check if it improves the solution)
         for k in range(self._instance.m):
             for i in range(self._instance.origin - 1):
                 for j in range(self._instance.origin - 1):
                     if i != j:
-                        # solver.add(z3.If(table[k][i][j],1,0) + z3.If(table[k][j][i],1,0) <= 1)
-                        self._solver.add(z3.PbLe([(self._table[k][i][j], 1), (self._table[k][j][i], 1)], 1))
+                        # If a courier goes for i to j then it cannot go from j to i, except for the origin
+                        self._solver.add(z3.Not(z3.And(self._table[k][i][j], self._table[k][j][i])))
 
-        # Sub-tour elimination
-        for k in range(self._instance.m):
-            for i in range(self._instance.origin - 1):
-                for j in range(self._instance.origin - 1):
-                    if i != j:
-                        self._solver.add(self._u[(k * self._instance.m) + j] >= self._u[
-                            (k * self._instance.m) + i] + 1 - self._instance.origin * (
-                                                 1 - z3.If(self._table[k][i][j], 1, 0)))
+                        # Sub-tour elimination
+                        self._solver.add(self._u[k][j]
+                                         >= self._u[k][i] + 1 - self._instance.origin * (
+                                                     1 - z3.If(self._table[k][i][j], 1, 0)))
