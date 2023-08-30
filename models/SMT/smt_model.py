@@ -34,7 +34,7 @@ class Z3_smt_model(Abstract_model):
                 self._solver.add(self._u[k][i] >= 0)
                 self._solver.add(self._u[k][i] <= instance.origin - 1)
 
-    def solve(self) -> None:
+    def solve(self, processes = 1) -> None:
         obj = z3.Int('obj')
 
         # Upper and lower bounds on the objective
@@ -63,7 +63,8 @@ class Z3_smt_model(Abstract_model):
             self._result['sol'] = None
 
         self._solver.set("timeout", int(300 - self._inst_time) * 1000)
-        self._solver.set("threads", 8)
+        if processes > 1:
+            self._solver.set("threads", processes)
         while self._solver.check() == z3.sat:
             self._model = self._solver.model()
             self._solver.add(obj < self._model[obj])

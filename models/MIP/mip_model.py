@@ -72,7 +72,7 @@ class Mip_model(Abstract_model):
 
         return routes
 
-    def solve(self) -> None:
+    def solve(self, processes = 1) -> None:
 
         # Objective
         obj = self.__model.add_var(var_type=mip.INTEGER, name='obj')
@@ -101,7 +101,7 @@ class Mip_model(Abstract_model):
         # model.pump_passes = 1  # Perform one pass of diving heuristics
         # model.probing_level = 3  # Enable probing
         # model.rins = 1  # Enable RINS heuristic
-        self.__model.threads = multiprocessing.cpu_count()
+        self.__model.threads = processes
 
         if self.__h:
             # Call the Clark and Wright Savings Algorithm
@@ -204,7 +204,7 @@ class Or_model(Abstract_model):
             for i in range(self._instance.origin):
                 self._u[k, i] = self.__solver.IntVar(0, self._instance.origin - 1, f'u_{k}_{i}')
 
-    def solve(self) -> None:
+    def solve(self, processes = 1) -> None:
 
         # Objective
         obj = self.__solver.IntVar(0, self._instance.max_path, 'obj')
@@ -290,7 +290,7 @@ class Or_model(Abstract_model):
             self.__solver.Add(self.__solver.Sum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                                 range(self._instance.origin - 1)) >= self._instance.min_packs)
             self.__solver.Add(self.__solver.Sum(self._table[k, i, j] for i in range(self._instance.origin) for j in
-                                                range(self._instance.origin - 1)) <= self._instance.max_path_length)
+                                                range(self._instance.origin - 1)) <= self._instance.max_path)
 
         # If a courier goes for i to j then it cannot go from j to i, except for the origin
         # (this constraint it is not necessary for the model to work, but check if it improves the solution)
@@ -334,7 +334,7 @@ class Pulp_model(Abstract_model):
                 self._u[k, i] = pulp.LpVariable(f'u_{k}_{i}', lowBound=1, upBound=self._instance.origin,
                                                 cat=pulp.LpInteger)
 
-    def solve(self) -> None:
+    def solve(self, processes = 1) -> None:
         # Objective
         obj = pulp.LpVariable('obj', cat=pulp.LpInteger)
 
@@ -413,7 +413,7 @@ class Pulp_model(Abstract_model):
             self.__model += pulp.lpSum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                        range(self._instance.origin - 1)) >= self._instance.min_packs
             self.__model += pulp.lpSum(self._table[k, i, j] for i in range(self._instance.origin) for j in
-                                       range(self._instance.origin - 1)) <= self._instance.max_path_length
+                                       range(self._instance.origin - 1)) <= self._instance.max_path
 
         # If a courier goes for i to j then it cannot go from j to i, except for the origin
         # (this constraint it is not necessary for the model to work, but check if it improves the solution)

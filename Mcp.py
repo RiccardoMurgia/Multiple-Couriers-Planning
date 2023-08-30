@@ -117,7 +117,7 @@ def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool',
                 solver = Pulp_model(lib, instance)
 
             print("model built, now solving...")
-            solver.solve()
+            solver.solve(processes = config['processes'])
             result = solver.get_result()
 
             json_parser.save_results('MIP', instance.name, result)
@@ -148,7 +148,7 @@ def solve_smt(config: 'dict', instances_path: 'str', verbose: 'bool',
                 solver = Z3_smt_model(lib, instance)
 
             print("model built, now solving...")
-            solver.solve()
+            solver.solve(processes = config['processes'])
             result = solver.get_result()
             json_parser.save_results('SMT', instance.name, result)
             print("<----------------------------------------------->")
