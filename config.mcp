@@ -1,8 +1,8 @@
 {
 	"instances_path":"./instances/",
     "usage_mode":{
-                "instances_to_solve": "[inst01.dat]",
-                "models_to_use":["mip"]
+                "instances_to_solve": "[inst00.dat,inst01.dat,inst02.dat,inst03.dat,inst04.dat,inst05.dat,inst06.dat,inst07.dat,inst08.dat,inst09.dat,inst10.dat,inst16.dat]",
+                "models_to_use":["mip", "smt"]
     },
 	"cp":{
 		"solvers":["gecode"],
@@ -14,7 +14,7 @@
 		"processes":1
 	},
     "mip": {
-        "library": ["mip","ortools","pulp"],
+        "library": ["pulp"],
         "timeout": 300000,
         "processes":8
     },
