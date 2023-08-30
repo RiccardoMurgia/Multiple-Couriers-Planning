@@ -1,5 +1,6 @@
 from z3 import Bool, And, Or, Not, Implies, sat, Solver
 from instance import Instance
+from json_parser import Json_parser
 import numpy as np
 from models.SAT.Sat_utils import SatInteger, at_least_k, variable, exactly_one, SatSequences
 
@@ -12,7 +13,12 @@ def flatten(e):
         return flatten(e[0]) + flatten(e[1:])
     return [e[0]] + flatten(e[1:])
 
-
+def get_solution(sol:'list[list]') -> 'list[list]':
+    new_sol = []
+    for path in sol:
+        m = max(path)
+        new_sol.append(list(filter(lambda d: d < m, path)))
+    return new_sol
 class Sat_model:
 
     def __init__(self) -> None:
@@ -128,11 +134,14 @@ class Sat_model:
 
         return times, courier_route, loads, distances, max_load, max_distance
 
-    @staticmethod
-    def __update_max_distance(s, upper_bound, max_distance):
+    
+    def __update_max_distance(self, s, upper_bound, max_distance):
         s.pop()
         s.push()
-        s.add(max_distance.add_less_int(upper_bound))
+        u = SatInteger(upper_bound)
+        s.add(u.get_constraints())
+        s.add(max_distance.add_less(u))
+        s.add(max_distance.get_constraints())
 
     @staticmethod
     def __get_route(route_matrix, model, start, end):
@@ -183,7 +192,7 @@ class Sat_model:
             self.instance.m,
             self.instance.n,
             self.instance.origin,
-            self.instance.max_path_length,
+            self.instance.max_packs,
             self.instance.min_packs
             )
         
@@ -217,9 +226,19 @@ class Sat_model:
             print(sol["max_distance"])
             if sol["max_distance"] == self.instance.min_path:
                 break
+
+            if current_time >= 300:
+                break
             self.__update_max_distance(self.s,sol["max_distance"], self.__solution["max_distance"])
 
-        return solutions
+        final_solution = {
+            'optimal': solutions[-1]['solution']["max_distance"] == self.instance.min_path or current_time < 300,
+            'time' : time() - start,
+            'obj': solutions[-1]['solution']["max_distance"],
+            'sol': get_solution(solutions[-1]['solution']['route'])
+        }
+        return final_solution
+
     
     def split_search(self, processes=1, timeout=300000):
         start = time()
@@ -238,6 +257,8 @@ class Sat_model:
         sol = {}
         while cond != 2:
             current_time = int(time()-start)
+            if current_time * 1000 > timeout:
+                break
             if result == sat:
                 sol = self.__convert_solution(self.__solution, self.s.model(), self.instance.m, self.instance.origin)
                 solutions.append({"solution":sol, "time":current_time})
@@ -258,12 +279,21 @@ class Sat_model:
                 print("Fail, time left:", current_time)
                 print("Solution: ", old_max, "Now tryin with New Max: ", old_max, " and New Min: ", min_distance)
             result = self.s.check()
-        print("Max distance: ", solutions[-1]["solution"]["max_distance"])
-        return solutions
+        final_solution = {
+            'optimal': solutions[-1]['solution']["max_distance"] == self.instance.min_path or cond == 2,
+            'time' : time() - start,
+            'obj': solutions[-1]['solution']["max_distance"],
+            'sol': get_solution(solutions[-1]['solution']['route'])
+        }
+        return final_solution
         
 if __name__ == "__main__":
     model = Sat_model()
     start = time()
-    model.add_instance(Instance('instances/inst10.dat'))
+    instance = Instance('instances/inst02.dat')
+    model.add_instance(instance)
     print("created in", time() - start)
-    print(model.split_search())
+    res = model.split_search()
+    print(res)
+    json_parser = Json_parser()
+    json_parser.save_results('SAT', instance.name, res)

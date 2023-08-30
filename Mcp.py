@@ -90,10 +90,10 @@ def solve_sat(config: 'dict', instances_path: 'str', verbose: 'bool',
         print("building model...")
         solver.add_instance(instance, build=True)
         print("model built, now solving...")
-        solutions = solver.minimize(timeout=config['timeout'], processes=config['processes'])
+        solution = solver.split_search(timeout=config['timeout'], processes=config['processes'])
         if verbose:
-            print(solutions[-1])
-
+            print(solution)
+        json_parser.save_results('SAT',instance.name, solution)
 
 def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool',
               instance_to_solve: Union[list[str], str] = 'all_instances'):

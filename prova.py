@@ -138,7 +138,10 @@ class Sat_model:
     def __update_max_distance(self, s, upper_bound, max_distance):
         s.pop()
         s.push()
-        s.add(max_distance.add_less_int(upper_bound))
+        u = SatInteger(upper_bound)
+        s.add(u.get_constraints())
+        s.add(max_distance.add_less(u))
+        s.add(max_distance.get_constraints())
 
     @staticmethod
     def __get_route(route_matrix, model, start, end):
@@ -277,7 +280,7 @@ class Sat_model:
 if __name__ == "__main__":
     model = Sat_model()
     start = time()
-    instance = Instance('instances/inst10.dat')
+    instance = Instance('instances/inst02.dat')
     model.add_instance(instance)
     print("created in", time() - start)
     res = model.split_search()
