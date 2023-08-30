@@ -5,7 +5,6 @@ import pulp
 import multiprocessing
 import time
 
-
 from models.Abstract_model import Abstract_model
 from instance import Instance
 
@@ -314,17 +313,17 @@ class Pulp_model(Abstract_model):
 
     def __init__(self, lib: 'str', instance: 'Instance'):
         super().__init__(lib, instance)
-        self._table = {}
+        self.__solver = None
 
         # Create model
         self.__model = pulp.LpProblem("CourierProblem", pulp.LpMinimize)
 
         # Create variables
         self._table = pulp.LpVariable.dicts("table",
-                                             ((k, i, j) for k in range(instance.m) for i in range(instance.origin) for j
-                                              in
-                                              range(instance.origin)),
-                                             lowBound=0, upBound=1, cat=pulp.LpBinary)
+                                            ((k, i, j) for k in range(instance.m) for i in range(instance.origin) for j
+                                             in
+                                             range(instance.origin)),
+                                            lowBound=0, upBound=1, cat=pulp.LpBinary)
 
         self.__courier_distance = pulp.LpVariable.dicts("courier_distance", (range(instance.m)), cat=pulp.LpInteger,
                                                         lowBound=0, upBound=instance.max_path)
@@ -357,12 +356,22 @@ class Pulp_model(Abstract_model):
         # Set the objective
         self.__model += obj
 
-        # Solve the problem
         self._end_time = time.time()
         self._inst_time = self._end_time - self._start_time
 
-        solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=int(300 - self._inst_time))
-        self._status = self.__model.solve(solver)
+        if self._inst_time >= 300:
+            self._result['time'] = round(self._inst_time, 3)
+            self._result['optimal'] = False
+            self._result['obj'] = None
+            self._result['sol'] = None
+
+        # Solve the problem
+        self.__solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=int(300 - self._inst_time))
+
+        self._end_time = time.time()
+        self._inst_time = self._end_time - self._start_time
+
+        self._status = self.__model.solve(self.__solver)
 
         # Output
         if self._status == pulp.LpStatusOptimal or self._status == pulp.LpStatusNotSolved:
