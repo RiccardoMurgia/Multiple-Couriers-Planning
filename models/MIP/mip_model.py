@@ -290,7 +290,7 @@ class Or_model(Abstract_model):
             self.__solver.Add(self.__solver.Sum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                                 range(self._instance.origin - 1)) >= self._instance.min_packs)
             self.__solver.Add(self.__solver.Sum(self._table[k, i, j] for i in range(self._instance.origin) for j in
-                                                range(self._instance.origin - 1)) <= self._instance.max_path_length)
+                                                range(self._instance.origin - 1)) <= self._instance.max_packs)
 
         # If a courier goes for i to j then it cannot go from j to i, except for the origin
         # (this constraint it is not necessary for the model to work, but check if it improves the solution)
@@ -413,7 +413,7 @@ class Pulp_model(Abstract_model):
             self.__model += pulp.lpSum(self._table[k, i, j] for i in range(self._instance.origin) for j in
                                        range(self._instance.origin - 1)) >= self._instance.min_packs
             self.__model += pulp.lpSum(self._table[k, i, j] for i in range(self._instance.origin) for j in
-                                       range(self._instance.origin - 1)) <= self._instance.max_path_length
+                                       range(self._instance.origin - 1)) <= self._instance.max_packs
 
         # If a courier goes for i to j then it cannot go from j to i, except for the origin
         # (this constraint it is not necessary for the model to work, but check if it improves the solution)
