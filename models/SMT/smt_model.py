@@ -2,6 +2,7 @@ import z3
 import time
 import numpy as np
 
+from os.path import join
 from models.Abstract_model import Abstract_model
 from instance import Instance
 
@@ -33,13 +34,16 @@ class Z3_smt_model(Abstract_model):
             for i in range(instance.origin):
                 self._solver.add(self._u[k][i] >= 0)
                 self._solver.add(self._u[k][i] <= instance.origin - 1)
+ 
+        self.__build()
+        self._end_time = time.time()
 
-    def solve(self, processes = 1) -> None:
-        obj = z3.Int('obj')
+    def __build(self):
+        self.obj = z3.Int('obj')
 
         # Upper and lower bounds on the objective
-        self._solver.add(obj <= self._instance.max_path)
-        self._solver.add(obj >= self._instance.min_path)
+        self._solver.add(self.obj <= self._instance.max_path)
+        self._solver.add(self.obj >= self._instance.min_path)
 
         # Calculate the courier distance for each courier
         for k in range(self._instance.m):
@@ -49,11 +53,18 @@ class Z3_smt_model(Abstract_model):
 
         # Objective
         for k in range(self._instance.m):
-            self._solver.add(obj >= self._courier_distance[k])
+            self._solver.add(self.obj >= self._courier_distance[k])
 
         self.add_constraints()
 
-        self._end_time = time.time()
+    def save(self, save_folder:'str'):
+        f = open(join(save_folder,f'{self._instance.name}.smt2'), "x")
+        smt_file = self._solver.to_smt2()
+        f.write(smt_file)
+        f.close()
+        print(f"exported model to file {self._instance.name} into folder {save_folder}")
+
+    def solve(self, processes = 1) -> None:
         self._inst_time = self._end_time - self._start_time
 
         if self._inst_time >= 300:
@@ -67,7 +78,7 @@ class Z3_smt_model(Abstract_model):
             self._solver.set("threads", processes)
         while self._solver.check() == z3.sat:
             self._model = self._solver.model()
-            self._solver.add(obj < self._model[obj])
+            self._solver.add(self.obj < self._model[self.obj])
 
             # Check if the solution is optimal
             if self._solver.check() == z3.unsat:
@@ -84,7 +95,7 @@ class Z3_smt_model(Abstract_model):
 
         self._result['time'] = round(self._inst_time, 3)
         self._result['optimal'] = self._optimal_solution_found
-        self._result['obj'] = self._model[obj].as_long()
+        self._result['obj'] = self._model[self.obj].as_long()
         self._result['sol'] = self._get_solution()
 
     def add_constraints(self) -> None:

@@ -1,7 +1,7 @@
 {
 	"instances_path":"./instances/",
     "usage_mode":{
-                "instances_to_solve": "[inst00.dat,inst01.dat,inst02.dat,inst03.dat,inst04.dat,inst05.dat,inst06.dat,inst07.dat,inst08.dat,inst09.dat,inst10.dat,inst16.dat]",
+                "instances_to_solve": "[inst01.dat]",
                 "models_to_use":["mip", "smt"]
     },
 	"cp":{
@@ -13,16 +13,17 @@
 		"timeout":300000,
 		"processes":1
 	},
-    "mip": {
-        "library": ["pulp"],
-        "timeout": 300000,
-        "processes":8
-    },
+  "mip":{
+    "library": ["pulp", "or-tools"],
+    "timeout": 300000,
+    "processes":8,
+    "export_folder": "export/mip"
+  },
 	"smt":{
-	    "library":["z3"],
-	    "timeout":300000,
-	    "processes":1
-	},
-	"just_time":true,
-	"verbose":false
+	  "library":["z3"],
+	  "timeout":300000,
+	  "processes":1,
+	  "export_folder":"export/smt"
+
+	}
 }

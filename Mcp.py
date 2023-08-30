@@ -1,11 +1,10 @@
 from models.Cp.model import CpModel
-from models.Cp.solutions import CpSolution
 from models.SAT.SAT_model import Sat_model
 from models.MIP.mip_model import Mip_model, Or_model, Pulp_model
 from models.SMT.smt_model import Z3_smt_model
 from instance import Instance
-from os import listdir
-from os.path import isfile, join
+from os import listdir, makedirs
+from os.path import isfile, join, exists
 import argparse
 import json
 from json_parser import Json_parser
@@ -46,7 +45,7 @@ def load_specific_instances(instances_path: 'str', instance_to_solve: 'list[str]
     return instances
 
 
-def solve_cp(config: 'dict', instances_path: 'str', just_time: 'bool', verbose: 'bool',
+def solve_cp(config: 'dict', instances_path: 'str',
              instance_to_solve: Union[list[str], str] = 'all_instances'):
     solver = CpModel('./models/Cp/Cp_model.mzn')
     print("============================================================================")
@@ -69,12 +68,9 @@ def solve_cp(config: 'dict', instances_path: 'str', just_time: 'bool', verbose: 
             print("<----------------------------------------------->")
             print(f'solution for solver {cp_solver}:')
             print(result)
-            # solution.print(just_time, verbose)
-
-            solution.print(just_time, verbose)
 
 
-def solve_sat(config: 'dict', instances_path: 'str', verbose: 'bool',
+def solve_sat(config: 'dict', instances_path: 'str',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
     solver = Sat_model()
     print('loaded sat model')
@@ -91,11 +87,10 @@ def solve_sat(config: 'dict', instances_path: 'str', verbose: 'bool',
         solver.add_instance(instance, build=True)
         print("model built, now solving...")
         solution = solver.split_search(timeout=config['timeout'], processes=config['processes'])
-        if verbose:
-            print(solution)
+        print(solution)
         json_parser.save_results('SAT',instance.name, solution)
 
-def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool',
+def solve_mip(config: 'dict', instances_path: 'str',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
     libraries = config['library']
 
@@ -103,6 +98,13 @@ def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool',
         instances = load_all_instances(instances_path)
     else:
         instances = load_specific_instances(instances_path, instance_to_solve)
+
+    if config.get("export_folder")!= "":
+        if not exists(config['export_folder']):
+            makedirs(config['export_folder'])
+
+        for instance in instances:
+            Or_model("or-tools", instance).save(config['export_folder'])
 
     for lib in libraries:
         print(f'loaded Mip model implemented with library: {lib}')
@@ -125,55 +127,48 @@ def solve_mip(config: 'dict', instances_path: 'str', verbose: 'bool',
             print(f'solution for library {lib}:')
             print(result)
 
-            if verbose:
-                print(result)
 
-
-def solve_smt(config: 'dict', instances_path: 'str', verbose: 'bool',
+def solve_smt(config: 'dict', instances_path: 'str',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
-    library = config['library']
 
     if instance_to_solve == 'all_instances':
         instances = load_all_instances(instances_path)
     else:
         instances = load_specific_instances(instances_path, instance_to_solve)
 
-    for lib in library:
-        print(f'loaded Mip model implemented with library: {lib}')
+    if config.get("export_folder")!= "":
+        if not exists(config['export_folder']):
+            makedirs(config['export_folder'])
+        print(f'loaded Mip model implemented with z3')
         for instance in instances:
             print(f"solving instance {instance.name}")
             print("building model...")
-            solver = None
-            if lib == 'z3':
-                solver = Z3_smt_model(lib, instance)
-
+            solver = Z3_smt_model("z3", instance)
+            if config.get("export_folder")!= "":
+                solver.save(config["export_folder"])
             print("model built, now solving...")
             solver.solve(processes = config['processes'])
             result = solver.get_result()
             json_parser.save_results('SMT', instance.name, result)
             print("<----------------------------------------------->")
-            print(f'solution for library {lib}:')
+            print(f'solution:')
             print(result)
-
-            if verbose:
-                print(result)
-
 
 def main(config: 'dict'):
     models_to_use = config['usage_mode']['models_to_use']
     instances_to_solve = config['usage_mode']['instances_to_solve']
     if 'cp' in models_to_use:
         print("============================================================================")
-        solve_cp(config['cp'], config['instances_path'], config['just_time'], config['verbose'], instances_to_solve)
+        solve_cp(config['cp'], config['instances_path'], instances_to_solve)
     if 'sat' in models_to_use:
         print("============================================================================")
-        solve_sat(config['sat'], config['instances_path'], config['verbose'], instances_to_solve)
+        solve_sat(config['sat'], config['instances_path'], instances_to_solve)
     if 'mip' in models_to_use:
         print("============================================================================")
-        solve_mip(config['mip'], config['instances_path'], config['verbose'], instances_to_solve)
+        solve_mip(config['mip'], config['instances_path'], instances_to_solve)
     if 'smt' in models_to_use:
         print("============================================================================")
-        solve_smt(config['smt'], config['instances_path'], config['verbose'], instances_to_solve)
+        solve_smt(config['smt'], config['instances_path'], instances_to_solve)
 
 
 if __name__ == '__main__':

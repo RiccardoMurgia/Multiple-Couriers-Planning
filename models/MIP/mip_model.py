@@ -1,3 +1,4 @@
+from os.path import join
 import mip
 from ortools.linear_solver import pywraplp
 import pulp
@@ -204,8 +205,9 @@ class Or_model(Abstract_model):
             for i in range(self._instance.origin):
                 self._u[k, i] = self.__solver.IntVar(0, self._instance.origin - 1, f'u_{k}_{i}')
 
-    def solve(self, processes = 1) -> None:
+        self.__build()
 
+    def __build(self):
         # Objective
         obj = self.__solver.IntVar(0, self._instance.max_path, 'obj')
 
@@ -227,6 +229,9 @@ class Or_model(Abstract_model):
         self.__solver.Minimize(obj)
 
         self._end_time = time.time()
+
+    def solve(self, processes = 1) -> None:
+        
         self._inst_time = self._end_time - self._start_time
 
         if self._inst_time >= 300:
@@ -310,7 +315,11 @@ class Or_model(Abstract_model):
                             self._u[k, j] >= self._u[k, i] + 1 - self._instance.origin * (1 - self._table[k, i, j]))
 
     def save(self, path: 'str') -> None:
-        self.__solver.ExportModelAsLpFormat(False, path)
+        f = open(join(path,f'{self._instance.name}.mps'),"x")
+        mps_model = self.__solver.ExportModelAsMpsFormat(False,False)
+        f.write(mps_model)
+        f.close()
+        print(f"exported model to file {self._instance.name} into folder {path}")
 
 class Pulp_model(Abstract_model):
 
@@ -440,4 +449,3 @@ class Pulp_model(Abstract_model):
 
     def update(self, path: 'str') -> None:
         var, self.__model = pulp.LpProblem.fromMPS(path) 
-        #var, self.__model = pulp.LpProblem.from_lp(path)
