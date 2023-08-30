@@ -1,5 +1,5 @@
 from itertools import combinations
-from z3 import Bool, Not, And, Or, Xor, Implies, Solver, sat, PbEq, PbLe, PbGe
+from z3 import Bool, Not, And, Or, Xor, Implies
 from z3.z3 import BoolRef
 from math import ceil, log2
 import numpy as np
@@ -687,13 +687,28 @@ def at_least_one(bool_vars):
     return Or(bool_vars)
 
 def exactly_one(bool_vars):
-    return PbEq([(b,1) for b in bool_vars], k=1)
+    return And(at_least_one(bool_vars), at_most_one(bool_vars))
 
 def at_most_k(bool_vars, k):
-    return PbLe([(b,1) for b in bool_vars], k=k)
+    n = len(bool_vars)
+    s = np.array([[Bool(str(uuid.uuid4())) for _ in range(k)] for _ in range(n - 1)])
+    constraints = [Or(Not(bool_vars[0]), s[0,0])] + \
+        [Not(s[0,j]) for j in range(1,k)]
+    for i in range(1, n-1):
+        constraints.append(Or(Not(bool_vars[i]), s[i,0]))
+        constraints.append(Implies(s[i-1,0], s[i,0]))
+        constraints.append(Implies(bool_vars[i], Not(s[i-1,k-1])))
+        for j in range(i,k):
+            constraints.append(Or(Not(bool_vars[i]), Not(s[i-1,j-1]), s[i,j]))
+            constraints.append(Implies(s[i-1,j], s[i,j]))
+    constraints.append(Implies(bool_vars[n-1], Not(s[n-2,k-1])))
+    return And(constraints)
 
 def at_least_k(bool_vars,k):
-    return PbGe([(b,1) for b in bool_vars], k=k)
+    if k == 1:
+        return at_least_one(bool_vars)
+    return at_most_k([Not(b) for b in bool_vars], len(bool_vars) - k)
 
 def exactly_k(bool_vars,k):
-    return PbEq([(b,1) for b in bool_vars], k=k)
+    return And(at_least_k(bool_vars,k), at_most_k(bool_vars,k))
+
