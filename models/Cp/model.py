@@ -1,6 +1,7 @@
 import json
 import re
-
+from os.path import join, exists
+from os import makedirs
 from instance import *
 
 from models.Cp.solutions import CpSolution
@@ -19,6 +20,8 @@ class CpModel:
         self.__solver = solver
 
     def solve(self, timeout: 'int' = 300000, processes: 'int' = 1) -> CpSolution:
+        if not exists('.cache/cp'):
+            makedirs('.cache/cp')
         self.__instance.save_dzn('.cache/cp')
         parameters = ['minizinc', '--solver', self.__solver, self.__model_path, f'.cache/cp/{self.__instance.name}.dzn',
                       '-s', '-p', str(processes), '-i', '--json-stream']
@@ -52,7 +55,17 @@ class CpModel:
 
         return CpSolution(info)
 
-
+    def save(self, path):
+        file_name = join(path,f'{self.__instance.name}.fnz')
+        if not exists('.cache/cp'):
+                makedirs('.cache/cp')
+        self.__instance.save_dzn('.cache/cp')
+        parameters = ['minizinc', self.__model_path, f'.cache/cp/{self.__instance.name}.dzn', "--fzn", file_name, "-c"]
+        output = subprocess.run(parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True).stdout
+        if output == "":
+            print(f"exported model to file {self.__instance.name} into folder {path}")
+        else:
+            print(output)
 def manage_the_solution(solution_str):
     pattern = r'(\w+)\s*=\s*((?:\[\|[\s\S]*?\|\])|(?:\[.*?\])|(?:\d+));'
     matches = re.findall(pattern, solution_str)

@@ -56,6 +56,14 @@ def solve_cp(config: 'dict', instances_path: 'str',
     else:
         instances = load_specific_instances(instances_path, instance_to_solve)
 
+
+    if config.get("export_folder","") != "":
+        if not exists(config['export_folder']):
+            makedirs(config['export_folder'])
+
+        for instance in instances:
+            solver.add_instance(instance)
+            solver.save(config['export_folder'])
     for instance in instances:
         print("============================================================================")
         print(f"solving instance {instance.name}")
