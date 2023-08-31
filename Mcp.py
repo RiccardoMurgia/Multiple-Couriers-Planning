@@ -72,7 +72,7 @@ def solve_cp(config: 'dict', instances_path: 'str',
             print("model built, now solving...")
             solution = solver.solve(config['timeout'], processes=config['processes'])
             result = solution.get_result()
-            json_parser.save_results('cp', instance.name, result)
+            json_parser.save_results('CP', instance.name, result)
             print("<----------------------------------------------->")
             print(f'solution for solver {cp_solver}:')
             print(result)

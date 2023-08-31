@@ -1,13 +1,13 @@
 {
 	"instances_path":"./instances/",
     "usage_mode":{
-                "instances_to_solve": "[inst01.dat]",
-                "models_to_use":["mip", "smt"]
+                "instances_to_solve": "all_instances",
+                "models_to_use":["cp"]
     },
 	"cp":{
 		"solvers":["gecode"],
 		"timeout":300000,
-		"processes":8
+		"processes":16
 	},
 	"sat":{
 		"timeout":300000,
