@@ -10,10 +10,12 @@ int: min_path; % lower bound
 int: max_path; % lower bound
 array[1..n+1] of int: n_array;
 array[1..n+1] of int: count_array;
-int: max_path_length;
+int: max_packs;
 int: origin;
 int: min_packs;
+array[int] of set of int: similars;
 
+int: max_path_length = max_packs +2;
 
 array[1..m, 1..max_path_length] of var 1..n+1: courier_route; % route of each courier
 array[1..m] of var int: courier_distance; % distance traveled by each courier
@@ -30,8 +32,10 @@ constraint forall(j in 1..m, i in 2..min_packs+1)(
 
 constraint bin_packing_capa(max_load, packs, size);
 
-constraint forall(i in 2..min_packs+1)(
-	all_different(courier_route[m..1,i])
+constraint redundant_constraint(
+	forall(i in 2..max_path_length-1)(
+		all_different_except(courier_route[1..m,i], {origin})
+	)
 );
 
 constraint forall(j in 1..m, i in 1..n)(
@@ -55,7 +59,9 @@ constraint max_distance <= max_path; % do not search for impossible solutions
 
 constraint symmetry_breaking_constraint(
 	let{array[1..m] of var int: load = [sum(i in 1..n where packs[i] = j)(size[i]) | j in 1..m]} in
-		increasing(load)
+		forall(i in index_set(similars))(
+			increasing(load[similars[i]]) /\ increasing(courier_distance[similars[i]])
+		)
 );
 
 solve:: restart_luby(1000) minimize max_distance;

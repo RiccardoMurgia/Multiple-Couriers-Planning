@@ -4,7 +4,6 @@ LAMBDA = 0.1
 class CpSolution:
 
     def __init__(self, info: 'dict') -> None:
-        self.__all_statistics = None
         self.__last_solution = None
         self.__solved = True
         self.__satisfiable = True
@@ -12,49 +11,52 @@ class CpSolution:
         self.__n_solutions = None
         self.__init_time = 0
         self.__solve_time = 0
-        self.__total_time = 0
         self.__result = {}
 
-        try:
 
-            solutions = info['solutions']
-            statistics = info['statistics']
+        solutions = info['solutions']
+        statistics = info['statistics']
 
-            status = info['states'][0].get('status', {})
-
-            if len(solutions) != 0:
-                self.parse_statistics(statistics)
-                self.parse_solutions(solutions)
-
-            if status == 'OPTIMAL_SOLUTION':
-                self.__found_optimal_solution = True
-            if status == 'UNKNOWN':
-                self.__solved = False
-                return
-            if status == "UNSATISFIABLE":
-                self.__satisfiable = False
-                return
-
-            self.__result['time'] = self.__solve_time
-            self.__result['optimal'] = self.__found_optimal_solution
-            self.__result['obj'] = self.__last_solution['max_distance']
-            self.__result['sol'] = self.__last_solution['courier_route']
-
-        except Exception as e:
+        if len(solutions) != 0:
+            self.parse_statistics(statistics)
+            self.parse_solutions(solutions)
+        status = self.get_status(info['states'], len(solutions) > 0, int(self.__solve_time) >= 300000)
+        if status == 'OPTIMAL_SOLUTION':
+            self.__found_optimal_solution = True
+        if status == 'UNKNOWN':
             self.__solved = False
-            self.__all_statistics = []
-            self.solutions = None
-            print('Solution Not Found, Exception:', e)
+            return
+        if status == "UNSATISFIABLE":
+            self.__satisfiable = False
+            return
+
+        self.__result['time'] = self.__solve_time
+        self.__result['optimal'] = self.__found_optimal_solution
+        self.__result['obj'] = self.__last_solution['max_distance']
+        self.__result['sol'] = self.__last_solution['courier_route']
+
+
+    def get_status(self, states, has_solutions, has_timeouted):
+        if len(states) > 0:
+            return states[0]['status']
+        if not has_solutions and has_timeouted:
+            return 'UNKNOWN'
+        if not has_solutions and not has_timeouted:
+            return "UNSATISFIABLE"
+        if has_solutions and not has_timeouted:
+            return 'OPTIMAL_SOLUTION'
 
     def is_solved(self, timeout: int = 300000) -> bool:
         return self.__solved and self.__satisfiable and abs(self.__solve_time - timeout) < LAMBDA
 
     def parse_statistics(self, statistics: 'dict') -> None:
-        self.__n_solutions = statistics[-1]['statistics']['nSolutions']
-        self.__init_time = statistics[-2]['statistics']['initTime']
-        self.__solve_time = statistics[-2]['statistics']['solveTime']
-        self.__total_time = self.__init_time + self.__solve_time
-        self.__all_statistics = statistics
+        try:
+            self.__n_solutions = statistics[-1]['statistics']['nSolutions']
+            self.__solve_time = statistics[-2]['statistics']['solveTime']
+        except:
+            self.__n_solutions = statistics[-2]['statistics']['nSolutions']
+            self.__solve_time = statistics[-1]['statistics']['solveTime']
+            
 
     def parse_solutions(self, all_solutions: 'dict') -> None:
         self.solutions = all_solutions

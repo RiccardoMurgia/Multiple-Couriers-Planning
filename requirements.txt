@@ -4,3 +4,4 @@ mip
 pulp
 ortools
 jsbeautifier
+more_itertools
