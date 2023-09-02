@@ -95,7 +95,8 @@ def solve_sat(config: 'dict', instances_path: 'str',
         print("model built, now solving...")
         solution = solver.split_search(timeout=config['timeout'], processes=config['processes'])
         print(solution)
-        json_parser.save_results('SAT',instance.name, solution, instance.max_load_indeces)
+        json_parser.save_results('SAT', instance.name, solution, instance.max_load_indeces)
+
 
 def solve_mip(config: 'dict', instances_path: 'str',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
@@ -143,7 +144,7 @@ def solve_mip(config: 'dict', instances_path: 'str',
                 solver.solve(processes=config['processes'], timeout=config['timeout'])
                 result = solver.get_result()
 
-                json_parser.save_results('MIP', instance.name, result, sub_folders, instance.max_load_indeces)
+                json_parser.save_results('MIP', instance.name, result, instance.max_load_indeces, sub_folders)
                 print("<----------------------------------------------->")
                 print(f'solution for library {lib}:')
                 print(result)
@@ -159,7 +160,7 @@ def solve_smt(config: 'dict', instances_path: 'str',
     if config.get("export_folder", "") != "":
         if not exists(config['export_folder']):
             makedirs(config['export_folder'])
-        print(f'loaded Mip model implemented with z3')
+        print(f'loaded SMT model implemented with z3')
         for instance in instances:
             print(f"solving instance {instance.name}")
             print("building model...")
@@ -177,7 +178,6 @@ def solve_smt(config: 'dict', instances_path: 'str',
 
 def main(config: 'dict'):
     models_to_use = config['usage_mode']['models_to_use']
-    print(models_to_use)
     instances_to_solve = config['usage_mode']['instances_to_solve']
     if 'cp' in models_to_use:
         print("============================================================================")
@@ -188,7 +188,6 @@ def main(config: 'dict'):
     if 'mip' in models_to_use:
         print("============================================================================")
         solve_mip(config['mip'], config['instances_path'], instances_to_solve)
-        print('ooooooo')
     if 'smt' in models_to_use:
         print("============================================================================")
         solve_smt(config['smt'], config['instances_path'], instances_to_solve)
