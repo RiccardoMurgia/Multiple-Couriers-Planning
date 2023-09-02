@@ -160,7 +160,7 @@ def solve_smt(config: 'dict', instances_path: 'str',
     if config.get("export_folder", "") != "":
         if not exists(config['export_folder']):
             makedirs(config['export_folder'])
-        print(f'loaded Mip model implemented with z3')
+        print(f'loaded SMT model implemented with z3')
         for instance in instances:
             print(f"solving instance {instance.name}")
             print("building model...")
@@ -178,7 +178,6 @@ def solve_smt(config: 'dict', instances_path: 'str',
 
 def main(config: 'dict'):
     models_to_use = config['usage_mode']['models_to_use']
-    print(models_to_use)
     instances_to_solve = config['usage_mode']['instances_to_solve']
     if 'cp' in models_to_use:
         print("============================================================================")

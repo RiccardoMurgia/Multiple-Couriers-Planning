@@ -118,7 +118,7 @@ class Mip_model(Abstract_model):
         if self._status == mip.OptimizationStatus.OPTIMAL or self._status == mip.OptimizationStatus.FEASIBLE:
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = self._status == mip.OptimizationStatus.OPTIMAL
-            self._result['obj'] = self.__model.objective_value
+            self._result['obj'] = int(self.__model.objective_value)
             self._result['sol'] = self._get_solution()
 
         else:
@@ -255,6 +255,7 @@ class Or_model(Abstract_model):
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = status == pywraplp.Solver.OPTIMAL
             self._result['obj'] = self.__solver.Objective().Value()
+            self._result['obj'] = int(self.__solver.Objective().Value())
             self._result['sol'] = self._get_solution()
 
         else:
@@ -392,6 +393,7 @@ class Pulp_model(Abstract_model):
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = self._status == pulp.LpStatusOptimal
             self._result['obj'] = pulp.value(self.__model.objective)
+            self._result['obj'] = int(pulp.value(self.__model.objective))
             self._result['sol'] = self._get_solution()
 
         else:

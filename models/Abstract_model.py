@@ -22,7 +22,9 @@ class Abstract_model:
 
         # Extract and populate courier routes
         for k in range(self._instance.m):
+
             if self._lib == "mip":
+
                 self._courier_routes[k] = [[i, j] for i in range(self._instance.origin) for j in
                                            range(self._instance.origin) if
                                            self._table[k, i, j].x == 1]
@@ -68,7 +70,11 @@ class Abstract_model:
         # Create a list to store the routes for each courier
         routes = [self._courier_routes[k] for k in range(self._instance.m)]
 
-        # print(routes)
+        """
+        for i in range(len(routes)):
+            for j in range(len(routes[i])):
+                routes[i][j] += 1
+        """
         return routes
 
     def get_result(self) -> dict:

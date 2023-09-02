@@ -59,7 +59,7 @@ class Z3_smt_model(Abstract_model):
         self.add_constraints()
 
     def save(self, save_folder: 'str'):
-        f = open(join(save_folder, f'{self._instance.name}.smt2'), "x")
+        f = open(join(save_folder, f'{self._instance.name}.smt2'), "w")
         smt_file = self._solver.to_smt2()
         f.write(smt_file)
         f.close()
