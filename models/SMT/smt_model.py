@@ -16,7 +16,7 @@ class Z3_smt_model(Abstract_model):
 
         self._solver = z3.Solver()
 
-        self._table = np.array([[[z3.Bool(f'table_{k}_{i}_{j}') for j in range(self._instance.origin)] 
+        self._table = np.array([[[z3.Bool(f'table_{k}_{i}_{j}') for j in range(self._instance.origin)]
                                  for i in range(self._instance.origin)] for k in range(self._instance.m)])
 
         self._courier_distance = np.array([z3.Int(f'courier_distance_{k}') for k in range(self._instance.m)])
@@ -27,14 +27,15 @@ class Z3_smt_model(Abstract_model):
             self._solver.add(self._courier_distance[k] <= self._instance.max_path)
 
         # Auxiliary variables to avoid Sub-tours
-        self._u = np.array([[z3.Int(f'u_{k}_{i}') for i in range(self._instance.origin)] for k in range(self._instance.m)])
+        self._u = np.array(
+            [[z3.Int(f'u_{k}_{i}') for i in range(self._instance.origin)] for k in range(self._instance.m)])
 
         # Lower and upper bounds on the auxiliary variables
         for k in range(instance.m):
             for i in range(instance.origin):
                 self._solver.add(self._u[k][i] >= 0)
                 self._solver.add(self._u[k][i] <= instance.origin - 1)
- 
+
         self.__build()
         self._end_time = time.time()
 
@@ -48,7 +49,7 @@ class Z3_smt_model(Abstract_model):
         # Calculate the courier distance for each courier
         for k in range(self._instance.m):
             self._courier_distance[k] = z3.Sum(
-                [z3.If(self._table[k][i][j], 1, 0) * self._instance.distances[i][j] 
+                [z3.If(self._table[k][i][j], 1, 0) * self._instance.distances[i][j]
                  for i in range(self._instance.origin) for j in range(self._instance.origin)])
 
         # Objective
@@ -57,23 +58,23 @@ class Z3_smt_model(Abstract_model):
 
         self.add_constraints()
 
-    def save(self, save_folder:'str'):
-        f = open(join(save_folder,f'{self._instance.name}.smt2'), "x")
+    def save(self, save_folder: 'str'):
+        f = open(join(save_folder, f'{self._instance.name}.smt2'), "x")
         smt_file = self._solver.to_smt2()
         f.write(smt_file)
         f.close()
         print(f"exported model to file {self._instance.name} into folder {save_folder}")
 
-    def solve(self, processes = 1) -> None:
+    def solve(self, processes=1, timeout: 'int' = 300) -> None:
         self._inst_time = self._end_time - self._start_time
 
-        if self._inst_time >= 300:
+        if self._inst_time >= timeout:
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = self._optimal_solution_found
             self._result['obj'] = None
             self._result['sol'] = None
 
-        self._solver.set("timeout", int(300 - self._inst_time) * 1000)
+        self._solver.set("timeout", int(timeout - self._inst_time) * 1000)
         if processes > 1:
             self._solver.set("threads", processes)
         while self._solver.check() == z3.sat:
@@ -155,4 +156,4 @@ class Z3_smt_model(Abstract_model):
                         # Sub-tour elimination
                         self._solver.add(self._u[k][j]
                                          >= self._u[k][i] + 1 - self._instance.origin * (
-                                                     1 - z3.If(self._table[k][i][j], 1, 0)))
+                                                 1 - z3.If(self._table[k][i][j], 1, 0)))

@@ -14,7 +14,7 @@ class Json_parser:
             "SMT": os.path.join(result_directory_path, "SMT")
         }
 
-    def save_results(self, approach_name, instance_number, result, sub_folder="_None_"):
+    def save_results(self, approach_name, instance_number, result, sub_folder):
 
         # Create the approach's result folder if it doesn't exist
         if approach_name in self.approach_folders:
@@ -24,7 +24,6 @@ class Json_parser:
                 if not os.path.exists(os.path.join(self.approach_folders[approach_name], sub_folder)):
                     os.makedirs(os.path.join(self.approach_folders[approach_name], sub_folder))
 
-
         # Save the result to a JSon-Instance.origin file
         if sub_folder != "_None_":
             instance_path = os.path.join(self.approach_folders[approach_name], sub_folder, f"{instance_number}.json")
@@ -32,4 +31,3 @@ class Json_parser:
             instance_path = os.path.join(self.approach_folders[approach_name], f"{instance_number}.json")
         with open(instance_path, "w") as json_file:
             json_file.write(json.dumps({approach_name: result}, indent=4))
-

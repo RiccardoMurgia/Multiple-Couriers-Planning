@@ -1,28 +1,31 @@
 {
 	"instances_path":"./instances/",
     "usage_mode":{
-                "instances_to_solve": ["inst00.dat"],
+                "instances_to_solve": ["inst13.dat"],
                 "models_to_use":["mip"]
     },
 	"cp":{
 		"solvers":["gecode"],
 		"timeout":300000,
-		"processes":16
+		"processes": 16
 	},
 	"sat":{
 		"timeout":300000,
 		"processes":1
 	},
   "mip":{
-    "library": ["ortools"],
-    "timeout": 300000,
-    "processes":8,
+    "library": ["mip"],
+    "mip_solvers": ["CBC"],
+    "ortools_solvers": ["CBC_MIXED_INTEGER_PROGRAMMING","SAT_INTEGER_PROGRAMMING","SCIP_MIXED_INTEGER_PROGRAMMING"],
+    "pulp_solvers": ["CBC"],
+    "timeout": 300,
+    "processes": 1,
     "export_folder": "export/mip"
   },
 	"smt":{
 	  "library":["z3"],
-	  "timeout":300000,
-	  "processes":1,
+	  "timeout":300,
+	  "processes": 1,
 	  "export_folder":"export/smt"
 
 	}
