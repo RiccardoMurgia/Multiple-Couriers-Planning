@@ -190,7 +190,8 @@ class Or_model(Abstract_model):
         self._table = {}
 
         # Create solver
-        self.__solver = pywraplp.Solver.CreateSolver(solv)
+        #self.__solver = pywraplp.Solver.CreateSolver(solv)
+        self.__solver = pywraplp.Solver.CreateSolver('CP-SAT')
 
         for k in range(self._instance.m):
             for i in range(self._instance.origin):
@@ -379,7 +380,7 @@ class Pulp_model(Abstract_model):
 
         # Solve the problem
         print(self._instance.presolve_time, self._inst_time)
-        solver = pulp.GLPK_CMD(msg=False, timeLimit=int(300 - self._inst_time - self._instance.presolve_time))
+        solver = pulp.GLPK_CMD(msg=False, timeLimit=int(300))
         self._status = self.__model.solve(solver)
 
         # Output
@@ -392,8 +393,8 @@ class Pulp_model(Abstract_model):
         else:
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = self._status == pulp.LpStatusOptimal
-            self._result['obj'] = None
-            self._result['sol'] = None
+            self._result['obj'] = pulp.value(self.__model.objective)
+            self._result['sol'] = self._get_solution()
 
     def add_constraint(self) -> None:
         for i in range(self._instance.origin):
