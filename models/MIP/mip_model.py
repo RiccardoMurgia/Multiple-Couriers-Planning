@@ -315,7 +315,7 @@ class Or_model(Abstract_model):
                             self._u[k, j] >= self._u[k, i] + 1 - self._instance.origin * (1 - self._table[k, i, j]))
 
     def save(self, path: 'str') -> None:
-        f = open(join(path,f'{self._instance.name}.mps'),"x")
+        f = open(join(path,f'{self._instance.name}.mps'),"w")
         mps_model = self.__solver.ExportModelAsMpsFormat(False,False)
         f.write(mps_model)
         f.close()
@@ -379,7 +379,7 @@ class Pulp_model(Abstract_model):
 
         # Solve the problem
         print(self._instance.presolve_time, self._inst_time)
-        solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=int(300 - self._inst_time - self._instance.presolve_time))
+        solver = pulp.GLPK_CMD(msg=False, timeLimit=int(300 - self._inst_time - self._instance.presolve_time))
         self._status = self.__model.solve(solver)
 
         # Output
