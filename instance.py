@@ -12,7 +12,9 @@ class Instance:
         self.m = int(lines[0])
         self.n = int(lines[1])
         loads = lines[2].split(' ')
-        self.max_load = sorted([int(l) for l in loads])
+        self.max_load = [int(l) for l in loads]
+        self.max_load_indeces = np.argsort(self.max_load)
+        self.max_load = list(sorted(self.max_load))
         sizes = lines[3].split(' ')
         self.size = [int(s) for s in sizes if s != '']
         lines = lines[4:]

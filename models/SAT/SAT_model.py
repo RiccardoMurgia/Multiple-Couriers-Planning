@@ -298,4 +298,4 @@ if __name__ == "__main__":
     res = model.split_search()
     print(res)
     json_parser = Json_parser()
-    json_parser.save_results('SAT', instance.name, res)
+    json_parser.save_results('SAT', instance.name, res, instance.max_load_indeces)

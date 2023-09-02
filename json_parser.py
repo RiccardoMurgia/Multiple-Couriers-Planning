@@ -4,7 +4,7 @@ import os
 
 class Json_parser:
     # Define the paths for each approach's result folder
-    def __init__(self, result_directory_path: 'str' = 'res'):
+    def __init__(self, result_directory_path: 'str' = 'bamba'):
 
         self.result_directory_path = result_directory_path
         self.approach_folders = {
@@ -14,7 +14,7 @@ class Json_parser:
             "SMT": os.path.join(result_directory_path, "SMT")
         }
 
-    def save_results(self, approach_name, instance_number, result, sub_folder="_None_"):
+    def save_results(self, approach_name, instance_number, result, reorder_values, sub_folder="_None_"):
 
         # Create the approach's result folder if it doesn't exist
         if approach_name in self.approach_folders:
@@ -23,8 +23,12 @@ class Json_parser:
             if sub_folder != "_None_":
                 if not os.path.exists(os.path.join(self.approach_folders[approach_name], sub_folder)):
                     os.makedirs(os.path.join(self.approach_folders[approach_name], sub_folder))
+        if not result['sol'] is None:
+            new_sol = result['sol'].copy()
+            for i in range(len(reorder_values)):
+                new_sol[i] = result['sol'][reorder_values[i]]
 
-
+            result['sol'] = new_sol
         # Save the result to a JSon-Instance.origin file
         if sub_folder != "_None_":
             instance_path = os.path.join(self.approach_folders[approach_name], sub_folder, f"{instance_number}.json")

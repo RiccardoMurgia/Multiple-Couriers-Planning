@@ -72,7 +72,7 @@ def solve_cp(config: 'dict', instances_path: 'str',
             print("model built, now solving...")
             solution = solver.solve(config['timeout'], processes=config['processes'])
             result = solution.get_result()
-            json_parser.save_results('CP', instance.name, result, cp_solver)
+            json_parser.save_results('CP', instance.name, result, instance.max_load_indeces)
             print("<----------------------------------------------->")
             print(f'solution for solver {cp_solver}:')
             print(result)
@@ -96,7 +96,7 @@ def solve_sat(config: 'dict', instances_path: 'str',
         print("model built, now solving...")
         solution = solver.split_search(timeout=config['timeout'], processes=config['processes'])
         print(solution)
-        json_parser.save_results('SAT',instance.name, solution)
+        json_parser.save_results('SAT',instance.name, solution, instance.max_load_indeces)
 
 def solve_mip(config: 'dict', instances_path: 'str',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
@@ -128,10 +128,10 @@ def solve_mip(config: 'dict', instances_path: 'str',
             else:
                 raise Exception(f"unknown lib {lib}")
             print("model built, now solving...")
-            solver.solve(processes = config['processes'])
+            #solver.solve(processes = config['processes'])
             result = solver.get_result()
 
-            json_parser.save_results('MIP', instance.name, result)
+            json_parser.save_results('MIP', instance.name, result, instance.max_load_indeces)
             print("<----------------------------------------------->")
             print(f'solution for library {lib}:')
             print(result)
@@ -158,7 +158,7 @@ def solve_smt(config: 'dict', instances_path: 'str',
             print("model built, now solving...")
             solver.solve(processes = config['processes'])
             result = solver.get_result()
-            json_parser.save_results('SMT', instance.name, result)
+            json_parser.save_results('SMT', instance.name, result, instance.max_load_indeces)
             print("<----------------------------------------------->")
             print(f'solution:')
             print(result)
