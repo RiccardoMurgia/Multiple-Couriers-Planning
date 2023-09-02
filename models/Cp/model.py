@@ -9,11 +9,12 @@ import subprocess
 
 
 class CpModel:
+
+    NO_SYMMETRY = "-no-sym"
+
     def __init__(self, model_file_path: 'str') -> 'None':
         self.__model_path = model_file_path
         self.model_name = model_file_path.split('/')[-1].replace('.mzn', '')
-        self.__solver = None
-        self.__instance = None
 
     def add_instance(self, instance: 'Instance', solver: 'str' = 'Gecode') -> 'None':
         self.__instance = instance
@@ -22,17 +23,25 @@ class CpModel:
     def solve(self, timeout: 'int' = 300000, processes: 'int' = 1) -> CpSolution:
         if not exists('.cache/cp'):
             makedirs('.cache/cp')
+
+        solver = self.__solver
+        symmetry_breaking = True
+        if self.NO_SYMMETRY in self.__solver:
+            solver = solver.replace(self.NO_SYMMETRY, '')
+            symmetry_breaking = False
         self.__instance.save_dzn('.cache/cp')
-        parameters = ['minizinc', '--solver', self.__solver, self.__model_path, f'.cache/cp/{self.__instance.name}.dzn',
+        parameters = ['minizinc', '--solver', solver, self.__model_path, f'.cache/cp/{self.__instance.name}.dzn',
                       '-s', '-p', str(processes), '-i', '--json-stream']
         if timeout > 0:
             parameters += ['--time-limit', str(timeout)]
+        if not symmetry_breaking:
+            parameters +=['-D', '"mzn_ignore_symmetry_breaking_constraints=true;"']
+        print(parameters)
         completed_process = subprocess.Popen(parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         info = {}
         solutions = []
         statistics = []
         states = []
-
         for line in completed_process.stdout:
             message_data = json.loads(line)
             if message_data.get("type") == "solution":
@@ -48,7 +57,7 @@ class CpModel:
         info['solutions'] = solutions
         info['statistics'] = statistics
         info['states'] = states
-        
+
         return CpSolution(info)
 
     def save(self, path):
