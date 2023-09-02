@@ -392,7 +392,6 @@ class Pulp_model(Abstract_model):
         if self._status == pulp.LpStatusOptimal or self._status == pulp.LpStatusNotSolved:
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = self._status == pulp.LpStatusOptimal
-            self._result['obj'] = pulp.value(self.__model.objective)
             self._result['obj'] = int(pulp.value(self.__model.objective))
             self._result['sol'] = self._get_solution()
 
