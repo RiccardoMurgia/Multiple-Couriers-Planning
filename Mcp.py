@@ -124,15 +124,20 @@ def solve_mip(config: 'dict', instances_path: 'str',
                 print("============================================================================")
                 print(f"solving instance {instance.name}")
 
+                sub_folders = '_None_'
+
                 if lib == 'mip':
                     solver = Mip_model(lib, instance, h=False, param=0, solver_name=solver_name)
-                    sub_folders = lib
+                    if config['create_sub_folders']:
+                        sub_folders = lib
                 elif lib == 'ortools':
                     solver = Or_model(lib, instance, solver_name=solver_name)
-                    sub_folders = lib + '/' + solver_name
+                    if config['create_sub_folders']:
+                        sub_folders = lib + '_' + solver_name
                 elif lib == 'pulp':
                     solver = Pulp_model(lib, instance, timeout=config['timeout'])
-                    sub_folders = lib
+                    if config['create_sub_folders']:
+                        sub_folders = lib
                 else:
                     raise Exception(f"unknown lib {lib}")
                 print("model built, now solving...")
@@ -173,6 +178,7 @@ def solve_smt(config: 'dict', instances_path: 'str',
 
 def main(config: 'dict'):
     models_to_use = config['usage_mode']['models_to_use']
+    print(models_to_use)
     instances_to_solve = config['usage_mode']['instances_to_solve']
     if 'cp' in models_to_use:
         print("============================================================================")
@@ -183,6 +189,7 @@ def main(config: 'dict'):
     if 'mip' in models_to_use:
         print("============================================================================")
         solve_mip(config['mip'], config['instances_path'], instances_to_solve)
+        print('ooooooo')
     if 'smt' in models_to_use:
         print("============================================================================")
         solve_smt(config['smt'], config['instances_path'], instances_to_solve)
