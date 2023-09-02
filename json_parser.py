@@ -36,4 +36,3 @@ class Json_parser:
             instance_path = os.path.join(self.approach_folders[approach_name], f"{instance_number}.json")
         with open(instance_path, "w") as json_file:
             json_file.write(json.dumps({approach_name: result}, indent=4))
-

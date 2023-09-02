@@ -11,14 +11,14 @@ from instance import Instance
 
 
 class Mip_model(Abstract_model):
-    def __init__(self, lib: 'str', i: 'Instance', param, h: 'bool' = False, verbose: 'bool' = False):
+    def __init__(self, lib: 'str', i: 'Instance', param, h: 'bool' = False, verbose: 'bool' = False, solver_name='CBC'):
         super().__init__(lib, i)
         self._table = {}
         self.__param = param
         self.__h = h
 
         # Create model
-        self.__model = mip.Model(solver_name=mip.CBC)
+        self.__model = mip.Model(solver_name=solver_name)
 
         # Create variables
         self._table = {}
@@ -73,7 +73,7 @@ class Mip_model(Abstract_model):
 
         return routes
 
-    def solve(self, processes = 1) -> None:
+    def solve(self, processes=1, timeout=300) -> None:
 
         # Objective
         obj = self.__model.add_var(var_type=mip.INTEGER, name='obj')
@@ -112,7 +112,7 @@ class Mip_model(Abstract_model):
 
         self._end_time = time.time()
         self._inst_time = self._end_time - self._start_time
-        self._status = self.__model.optimize(max_seconds=int(300 - self._inst_time - self._instance.presolve_time))
+        self._status = self.__model.optimize(max_seconds=int(timeout))
 
         # Output
         if self._status == mip.OptimizationStatus.OPTIMAL or self._status == mip.OptimizationStatus.FEASIBLE:
@@ -182,16 +182,16 @@ class Mip_model(Abstract_model):
 
     def update(self, path: 'str') -> None:
         self.__model.read(path)
-        
+
+
 class Or_model(Abstract_model):
 
-    def __init__(self, lib: 'str', instance: 'Instance', solv: 'str' = 'CBC_MIXED_INTEGER_PROGRAMMING'):
+    def __init__(self, lib: 'str', instance: 'Instance', solver_name: 'str' = 'CBC_MIXED_INTEGER_PROGRAMMING'):
         super().__init__(lib, instance)
         self._table = {}
 
         # Create solver
-        #self.__solver = pywraplp.Solver.CreateSolver(solv)
-        self.__solver = pywraplp.Solver.CreateSolver('CP-SAT')
+        self.__solver = pywraplp.Solver.CreateSolver(solver_name)
 
         for k in range(self._instance.m):
             for i in range(self._instance.origin):
@@ -231,18 +231,18 @@ class Or_model(Abstract_model):
 
         self._end_time = time.time()
 
-    def solve(self, processes = 1) -> None:
-        
+    def solve(self, processes: 'int' = 1, timeout: 'int' = 300) -> None:
+        self.__solver.SetNumThreads(processes)
         self._inst_time = self._end_time - self._start_time
 
-        if self._inst_time >= 300:
+        if self._inst_time >= timeout:
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = False
             self._result['obj'] = None
             self._result['sol'] = None
 
         # IT IS NECESSARY TO HANDLE THE ABSENCE OF THE RETURN
-        self.__solver.SetTimeLimit(int((300 - self._inst_time - self._instance.presolve_time) * 1000))
+        self.__solver.SetTimeLimit(int(timeout))
 
         # Solve the model
         status = self.__solver.Solve()
@@ -316,17 +316,22 @@ class Or_model(Abstract_model):
                             self._u[k, j] >= self._u[k, i] + 1 - self._instance.origin * (1 - self._table[k, i, j]))
 
     def save(self, path: 'str') -> None:
-        f = open(join(path,f'{self._instance.name}.mps'),"w")
-        mps_model = self.__solver.ExportModelAsMpsFormat(False,False)
+        f = open(join(path, f'{self._instance.name}.mps'), "w")
+        mps_model = self.__solver.ExportModelAsMpsFormat(False, False)
         f.write(mps_model)
         f.close()
         print(f"exported model to file {self._instance.name} into folder {path}")
 
+
 class Pulp_model(Abstract_model):
 
-    def __init__(self, lib: 'str', instance: 'Instance'):
+    def __init__(self, lib: 'str', instance: 'Instance', solver_name: 'str' = 'CBC', timeout: int = 300):
         super().__init__(lib, instance)
-        self.__solver = None
+
+        if solver_name == 'CBC':
+            self._solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=int(timeout))
+        else:
+            raise Exception('Unknown Solver')
 
         # Create model
         self.__model = pulp.LpProblem("CourierProblem", pulp.LpMinimize)
@@ -347,7 +352,7 @@ class Pulp_model(Abstract_model):
                 self._u[k, i] = pulp.LpVariable(f'u_{k}_{i}', lowBound=1, upBound=self._instance.origin,
                                                 cat=pulp.LpInteger)
 
-    def solve(self, processes = 1) -> None:
+    def solve(self, processes: int = 1, timeout: int = 300) -> None:
         # Objective
         obj = pulp.LpVariable('obj', cat=pulp.LpInteger)
 
@@ -372,16 +377,15 @@ class Pulp_model(Abstract_model):
         self._end_time = time.time()
         self._inst_time = self._end_time - self._start_time
 
-        if self._inst_time >= 300:
+        if self._inst_time >= timeout:
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = False
             self._result['obj'] = None
             self._result['sol'] = None
 
         # Solve the problem
-        print(self._instance.presolve_time, self._inst_time)
-        solver = pulp.GLPK_CMD(msg=False, timeLimit=int(300))
-        self._status = self.__model.solve(solver)
+
+        self._status = self.__model.solve(self._solver)
 
         # Output
         if self._status == pulp.LpStatusOptimal or self._status == pulp.LpStatusNotSolved:
@@ -446,7 +450,7 @@ class Pulp_model(Abstract_model):
 
     def save(self, path: 'str') -> None:
         self.__model.writeMPS(path)
-        #self.__model.writeLP(path)
+        # self.__model.writeLP(path)
 
     def update(self, path: 'str') -> None:
-        var, self.__model = pulp.LpProblem.fromMPS(path) 
+        var, self.__model = pulp.LpProblem.fromMPS(path)

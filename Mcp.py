@@ -56,8 +56,7 @@ def solve_cp(config: 'dict', instances_path: 'str',
     else:
         instances = load_specific_instances(instances_path, instance_to_solve)
 
-
-    if config.get("export_folder","") != "":
+    if config.get("export_folder", "") != "":
         if not exists(config['export_folder']):
             makedirs(config['export_folder'])
 
@@ -107,7 +106,7 @@ def solve_mip(config: 'dict', instances_path: 'str',
     else:
         instances = load_specific_instances(instances_path, instance_to_solve)
 
-    if config.get("export_folder", "")!= "":
+    if config.get("export_folder", "") != "":
         if not exists(config['export_folder']):
             makedirs(config['export_folder'])
 
@@ -115,37 +114,49 @@ def solve_mip(config: 'dict', instances_path: 'str',
             Or_model("or-tools", instance).save(config['export_folder'])
 
     for lib in libraries:
-        print(f'loaded Mip model implemented with library: {lib}')
         for instance in instances:
-            print("============================================================================")
-            print(f"solving instance {instance.name}")
-            if lib == 'mip':
-                solver = Mip_model(lib, instance, h=False, param=0)
-            elif lib == 'ortools':
-                solver = Or_model(lib, instance)
-            elif lib== 'pulp':
-                solver = Pulp_model(lib, instance)
-            else:
-                raise Exception(f"unknown lib {lib}")
-            print("model built, now solving...")
-            #solver.solve(processes = config['processes'])
-            result = solver.get_result()
+            key = lib + '_solvers'
+            solver_to_use = config[key]
+            for solver_name in solver_to_use:
+                print("============================================================================")
+                print(f'loaded Mip model implemented with library {lib} and solver {solver_name}')
+                print("============================================================================")
+                print(f"solving instance {instance.name}")
 
-            json_parser.save_results('MIP', instance.name, result, instance.max_load_indeces)
-            print("<----------------------------------------------->")
-            print(f'solution for library {lib}:')
-            print(result)
+                sub_folders = '_None_'
+
+                if lib == 'mip':
+                    solver = Mip_model(lib, instance, h=False, param=0, solver_name=solver_name)
+                    if config['create_sub_folders']:
+                        sub_folders = lib
+                elif lib == 'ortools':
+                    solver = Or_model(lib, instance, solver_name=solver_name)
+                    if config['create_sub_folders']:
+                        sub_folders = lib + '_' + solver_name
+                elif lib == 'pulp':
+                    solver = Pulp_model(lib, instance, timeout=config['timeout'])
+                    if config['create_sub_folders']:
+                        sub_folders = lib
+                else:
+                    raise Exception(f"unknown lib {lib}")
+                print("model built, now solving...")
+                solver.solve(processes=config['processes'], timeout=config['timeout'])
+                result = solver.get_result()
+
+                json_parser.save_results('MIP', instance.name, result, sub_folders, instance.max_load_indeces)
+                print("<----------------------------------------------->")
+                print(f'solution for library {lib}:')
+                print(result)
 
 
 def solve_smt(config: 'dict', instances_path: 'str',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
-
     if instance_to_solve == 'all_instances':
         instances = load_all_instances(instances_path)
     else:
         instances = load_specific_instances(instances_path, instance_to_solve)
 
-    if config.get("export_folder", "")!= "":
+    if config.get("export_folder", "") != "":
         if not exists(config['export_folder']):
             makedirs(config['export_folder'])
         print(f'loaded Mip model implemented with z3')
@@ -153,18 +164,20 @@ def solve_smt(config: 'dict', instances_path: 'str',
             print(f"solving instance {instance.name}")
             print("building model...")
             solver = Z3_smt_model("z3", instance)
-            if config.get("export_folder")!= "":
+            if config.get("export_folder") != "":
                 solver.save(config["export_folder"])
             print("model built, now solving...")
-            solver.solve(processes = config['processes'])
+            solver.solve(processes=config['processes'], timeout=config['timeout'])
             result = solver.get_result()
             json_parser.save_results('SMT', instance.name, result, instance.max_load_indeces)
             print("<----------------------------------------------->")
             print(f'solution:')
             print(result)
 
+
 def main(config: 'dict'):
     models_to_use = config['usage_mode']['models_to_use']
+    print(models_to_use)
     instances_to_solve = config['usage_mode']['instances_to_solve']
     if 'cp' in models_to_use:
         print("============================================================================")
@@ -175,6 +188,7 @@ def main(config: 'dict'):
     if 'mip' in models_to_use:
         print("============================================================================")
         solve_mip(config['mip'], config['instances_path'], instances_to_solve)
+        print('ooooooo')
     if 'smt' in models_to_use:
         print("============================================================================")
         solve_smt(config['smt'], config['instances_path'], instances_to_solve)
