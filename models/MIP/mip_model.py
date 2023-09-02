@@ -254,7 +254,6 @@ class Or_model(Abstract_model):
                 and not self._result):
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = status == pywraplp.Solver.OPTIMAL
-            self._result['obj'] = self.__solver.Objective().Value()
             self._result['obj'] = int(self.__solver.Objective().Value())
             self._result['sol'] = self._get_solution()
 
