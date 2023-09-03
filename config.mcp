@@ -1,33 +1,31 @@
 {
-	"instances_path": "./instances/",
-    "usage_mode": {
-        "instances_to_solve": ["inst02.dat"],
-        "models_to_use": ["cp", "mip","sat","smt"]
+	"instances_path":"./instances/",
+    "usage_mode":{
+                "instances_to_solve": ["inst00.dat","inst01.dat","inst02.dat","inst03.dat","inst04.dat","inst05.dat","inst06.dat","inst08.dat","inst09.dat","inst10.dat", "inst13.dat", "inst16.dat"],
+                "models_to_use":["mip"]
     },
-	"cp": {
-		"solvers": ["gecode","chuffed","gecode-no-sym","chuffed-no-sym" ],
-		"timeout": 300000,
+	"cp":{
+		"solvers":["gecode-no-sym", "chuffed", "or-tools"],
+		"timeout":300000,
 		"processes": 16
 	},
-	"sat": {
-	    "solvers": ["z3"],
-		"timeout": 300000,
-		"processes": 1
+	"sat":{
+		"timeout":300000,
+		"solvers":["z3"],
+		"processes":1
 	},
-    "mip": {
-        "library": ["ortools", "mip", "pulp"],
-        "mip_solvers": ["CBC"],
-        "ortools_solvers": ["CBC", "SAT", "SCIP"],
-        "pulp_solvers": ["CBC"],
-        "timeout": 300,
-        "processes": 1,
-        "export_folder": "export/mip"
-    },
-	"smt": {
-	    "solvers": ["z3"],
-        "library": ["z3"],
-        "timeout": 300,
-        "processes": 1,
-        "export_folder": "export/smt"
+  "mip":{
+    "library": ["ortools"],
+    "mip_solvers": ["CBC"],
+    "ortools_solvers": ["CBC","SAT","SCIP"],
+    "pulp_solvers": ["CBC"],
+    "timeout": 300,
+    "processes": 1
+  },
+	"smt":{
+	  "library":["z3"],
+	  "solvers":["z3"],
+	  "timeout":300,
+	  "processes": 1
 	}
 }
