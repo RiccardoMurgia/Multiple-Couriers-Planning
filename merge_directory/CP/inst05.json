@@ -1,0 +1,1 @@
+{"chuffed": {"time": 0.0, "optimal": true, "obj": 206, "sol": [[2], [1, 3]]}, "gecode": {"time": 0.007722, "optimal": true, "obj": 206, "sol": [[2], [1, 3]]}, "or-tools": {"time": 0.00499006, "optimal": true, "obj": 206, "sol": [[2], [1, 3]]}}

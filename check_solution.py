@@ -67,10 +67,10 @@ def main(args):
           i += 1
       for i in range(len(dist_matrix)):
         assert dist_matrix[i][i] == 0
+
       for solver, result in results.items():
         print(f'\t\tChecking solver {solver}')
         header = f'Solver {solver}, instance {inst_number}'
-        print(results)
         if result['time'] < 0 or result['time'] > TIMEOUT:
           errors += [f"{header}: runtime unsound ({result['time']} sec.)"]
         if 'sol' not in result or not result['sol'] or result['sol'] == 'N/A':
