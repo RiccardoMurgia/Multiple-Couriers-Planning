@@ -110,10 +110,9 @@ class Mip_model(Abstract_model):
 
             print('Using warm start CWS: Initial solution found in {} seconds'.format(time.time() - self._start_time))
 
+        self._status = self.__model.optimize(max_seconds=int(timeout))
         self._end_time = time.time()
         self._inst_time = self._end_time - self._start_time
-        self._status = self.__model.optimize(max_seconds=int(timeout))
-
         # Output
         if self._status == mip.OptimizationStatus.OPTIMAL or self._status == mip.OptimizationStatus.FEASIBLE:
             self._result['time'] = round(self._inst_time, 3)
@@ -210,7 +209,7 @@ class Or_model(Abstract_model):
 
     def __build(self):
         # Objective
-        obj = self.__solver.IntVar(0, self._instance.max_path, 'obj')
+        self.obj = self.__solver.IntVar(0, self._instance.max_path, 'obj')
 
         for k in range(self._instance.m):
             self.__courier_distance[k] = self.__solver.Sum(
@@ -218,16 +217,16 @@ class Or_model(Abstract_model):
                 range(self._instance.origin))
 
         # Upper and lower bounds
-        self.__solver.Add(obj <= self._instance.max_path)
-        self.__solver.Add(obj >= self._instance.min_path)
+        self.__solver.Add(self.obj <= self._instance.max_path)
+        self.__solver.Add(self.obj >= self._instance.min_path)
 
         for k in range(self._instance.m):
-            self.__solver.Add(obj >= self.__courier_distance[k])
+            self.__solver.Add(self.obj >= self.__courier_distance[k])
 
         self.add_constraint()
 
         # Set the objective
-        self.__solver.Minimize(obj)
+        self.__solver.Minimize(self.obj)
 
         self._end_time = time.time()
 
@@ -242,7 +241,7 @@ class Or_model(Abstract_model):
             self._result['sol'] = None
 
         # IT IS NECESSARY TO HANDLE THE ABSENCE OF THE RETURN
-        self.__solver.SetTimeLimit(int(timeout))
+        self.__solver.SetTimeLimit(int(timeout) * 1000)
 
         # Solve the model
         status = self.__solver.Solve()
@@ -254,11 +253,9 @@ class Or_model(Abstract_model):
                 and not self._result):
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = status == pywraplp.Solver.OPTIMAL
-            self._result['obj'] = int(self.__solver.Objective().Value())
+            self._result['obj'] = int(self.obj.solution_value())
             self._result['sol'] = self._get_solution()
-
         else:
-
             self._result['time'] = round(self._inst_time, 3)
             self._result['optimal'] = status == pywraplp.Solver.OPTIMAL
             self._result['obj'] = None
@@ -374,8 +371,6 @@ class Pulp_model(Abstract_model):
         # Set the objective
         self.__model += obj
 
-        self._end_time = time.time()
-        self._inst_time = self._end_time - self._start_time
 
         if self._inst_time >= timeout:
             self._result['time'] = round(self._inst_time, 3)
@@ -386,6 +381,8 @@ class Pulp_model(Abstract_model):
         # Solve the problem
 
         self._status = self.__model.solve(self._solver)
+        self._end_time = time.time()
+        self._inst_time = self._end_time - self._start_time
 
         # Output
         if self._status == pulp.LpStatusOptimal or self._status == pulp.LpStatusNotSolved:

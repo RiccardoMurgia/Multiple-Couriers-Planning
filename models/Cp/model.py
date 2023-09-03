@@ -23,6 +23,8 @@ class CpModel:
         self.__solver = solver
 
     def solve(self, timeout: 'int' = 300000, processes: 'int' = 1) -> CpSolution:
+        if not exists('.cache'):
+            makedirs('.cache')
         if not exists('.cache/cp'):
             makedirs('.cache/cp')
 
@@ -43,7 +45,7 @@ class CpModel:
         if not symmetry_breaking:
             model_str += self.NO_SYMMETRY_STR
 
-        model_final = open(self.MODEL_PATH,'x')
+        model_final = open(self.MODEL_PATH,'w+')
         model_final.write(model_str)
         model_final.close()
         completed_process = subprocess.Popen(parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -85,12 +87,12 @@ class CpModel:
         if not symmetry_breaking:
             model_str += self.NO_SYMMETRY_STR
 
-        model_final = open(self.MODEL_PATH,'x')
+        model_final = open(self.MODEL_PATH,'w+')
         model_final.write(model_str)
         model_final.close()
 
         self.__instance.save_dzn('.cache/cp')
-        parameters = ['minizinc', solver, self.MODEL_PATH, f'.cache/cp/{self.__instance.name}.dzn', "--fzn", file_name, "-c"]
+        parameters = ['minizinc', self.MODEL_PATH, f'.cache/cp/{self.__instance.name}.dzn', "--fzn", file_name, "-c"]
         output = subprocess.run(parameters, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True).stderr
         if output == "":
             print(f"exported model to file {self.__instance.name} into folder {path}")

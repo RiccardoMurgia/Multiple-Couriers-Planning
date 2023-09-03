@@ -1,4 +1,0 @@
-{"chuffed": {"time": 0.033, "optimal": true, "obj": 226, "sol": [[1, 4], [8, 9], [7, 3], [6], [5], [2]]},
-  "gecode": {"time": 0.04806, "optimal": true, "obj": 226, "sol": [[5, 7], [2, 3], [8], [4], [1], [6, 9]]},
-  "or-tools": {"time": 1.96936, "optimal": true, "obj": 226, "sol": [[5], [2], [3, 7], [6], [4, 1], [9, 8]]},
-  "chuffed-no-sym": {"time": 0.028, "optimal": true, "obj": 226, "sol": [[1], [4], [2], [3, 5, 7], [6], [8, 9]]}, "gecode-no-sym": {"time": 0.058975, "optimal": true, "obj": 226, "sol": [[7], [6], [2, 3], [8], [5, 9], [1, 4]]}, "or-tools-no-sym": {"time": 2.34751, "optimal": true, "obj": 226, "sol": [[6, 9], [8], [4, 1], [7], [3, 2], [5]]}}
