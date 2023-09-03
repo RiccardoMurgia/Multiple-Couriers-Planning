@@ -180,7 +180,6 @@ def solve_smt(config: 'dict', instances_path: 'str',
 
 
 def merge_json_files(input_dir, output_dir, used_models):
-    models = ['CP', 'MIP', 'SMT', 'SAT']
     solvers = ['chuffed', 'gecode', 'or-tools', 'chuffed-no-sym', 'gecode-no-sym', 'or-tools-no-sym',
                'ortools_SAT', 'ortools_CBC', 'mip_CBC', 'ortools_SCIP', 'pulp_CBC',
                'z3']
@@ -190,33 +189,33 @@ def merge_json_files(input_dir, output_dir, used_models):
 
     if os.path.exists(output_dir):
         for model in used_models:
-            model_dir = os.path.join(output_dir, model)
+            model_dir = os.path.join(output_dir, model.upper())
             if os.path.exists(model_dir):
                 shutil.rmtree(model_dir)
 
-    for model in models:
+    for m in used_models:
+        model = m.upper()
         out_model_dir_path = os.path.join(output_dir, model)
-        if model in used_models:
-            os.makedirs(out_model_dir_path)
-            for i in instance_result_id:
-                model_result_dict = {}
-                instance_name = 'inst' + i + '.json'
-                out_file_path = os.path.join(out_model_dir_path, instance_name)
+        os.makedirs(out_model_dir_path)
+        for i in instance_result_id:
+            model_result_dict = {}
+            instance_name = 'inst' + i + '.json'
+            out_file_path = os.path.join(out_model_dir_path, instance_name)
 
-                for solver in solvers:
-                    input_file_path = os.path.join(input_dir, model)
-                    input_file_path = os.path.join(input_file_path, solver)
-                    input_file_path = os.path.join(input_file_path, instance_name)
+            for solver in solvers:
+                input_file_path = os.path.join(input_dir, model)
+                input_file_path = os.path.join(input_file_path, solver)
+                input_file_path = os.path.join(input_file_path, instance_name)
 
-                    if os.path.exists(input_file_path):
-                        with open(input_file_path, "r") as f:
-                            data = json.load(f)
-                            tmp = data[model]
-                            model_result_dict[solver] = tmp
+                if os.path.exists(input_file_path):
+                    with open(input_file_path, "r") as f:
+                        data = json.load(f)
+                        tmp = data[model]
+                        model_result_dict[solver] = tmp
 
-                if model_result_dict != {}:
-                    with open(out_file_path, "w") as f:
-                        json.dump(model_result_dict, f)
+            if model_result_dict != {}:
+                with open(out_file_path, "w") as f:
+                    json.dump(model_result_dict, f)
 
     print('Results ready')
 
@@ -227,21 +226,21 @@ def main(config: 'dict'):
     models_to_use = config['usage_mode']['models_to_use']
 
     instances_to_solve = config['usage_mode']['instances_to_solve']
-    if os.path.exists(input_directory):
-        shutil.rmtree(input_directory)
-
-    if 'cp' in models_to_use:
-        print("============================================================================") 
-        solve_cp(config['cp'], config['instances_path'], instances_to_solve)
-    if 'sat' in models_to_use:
-        print("============================================================================")
-        solve_sat(config['sat'], config['instances_path'], instances_to_solve)
-    if 'mip' in models_to_use:
-        print("============================================================================")
-        solve_mip(config['mip'], config['instances_path'], instances_to_solve)
-    if 'smt' in models_to_use:
-        print("============================================================================")
-        solve_smt(config['smt'], config['instances_path'], instances_to_solve)
+    # if os.path.exists(input_directory):
+    #     shutil.rmtree(input_directory)
+    #
+    # if 'cp' in models_to_use:
+    #     print("============================================================================") 
+    #     solve_cp(config['cp'], config['instances_path'], instances_to_solve)
+    # if 'sat' in models_to_use:
+    #     print("============================================================================")
+    #     solve_sat(config['sat'], config['instances_path'], instances_to_solve)
+    # if 'mip' in models_to_use:
+    #     print("============================================================================")
+    #     solve_mip(config['mip'], config['instances_path'], instances_to_solve)
+    # if 'smt' in models_to_use:
+    #     print("============================================================================")
+    #     solve_smt(config['smt'], config['instances_path'], instances_to_solve)
 
     merge_json_files(input_directory, output_directory, models_to_use)
 
