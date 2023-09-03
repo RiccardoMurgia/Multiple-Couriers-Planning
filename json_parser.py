@@ -4,7 +4,7 @@ import os
 
 class Json_parser:
     # Define the paths for each approach's result folder
-    def __init__(self, result_directory_path: 'str' = 'bamba'):
+    def __init__(self, result_directory_path: 'str' = '.cache/results'):         #fixme: deve salvare in .cache/tmp_res
 
         self.result_directory_path = result_directory_path
         self.approach_folders = {
@@ -17,6 +17,9 @@ class Json_parser:
     def save_results(self, approach_name, instance_number, result, reorder_values, sub_folder="_None_"):
 
         # Create the approach's result folder if it doesn't exist
+        if result['time'] > 300:
+            result['time'] = 300
+
         if approach_name in self.approach_folders:
             if not os.path.exists(self.approach_folders[approach_name]):
                 os.makedirs(self.approach_folders[approach_name])

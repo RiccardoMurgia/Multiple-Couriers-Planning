@@ -1,3 +1,5 @@
+import os, shutil
+
 from models.Cp.model import CpModel
 from models.SAT.SAT_model import Sat_model
 from models.MIP.mip_model import Mip_model, Or_model, Pulp_model
@@ -51,6 +53,7 @@ def solve_cp(config: 'dict', instances_path: 'str',
     print("============================================================================")
     print(f'loaded models {solver.model_name}')
 
+
     if instance_to_solve == 'all_instances':
         instances = load_all_instances(instances_path)
     else:
@@ -71,7 +74,7 @@ def solve_cp(config: 'dict', instances_path: 'str',
             print("model built, now solving...")
             solution = solver.solve(config['timeout'], processes=config['processes'])
             result = solution.get_result()
-            json_parser.save_results('CP', instance.name, result, instance.max_load_indeces, cp_solver)
+            json_parser.save_results('CP', instance.name, result, instance.max_load_indexes, cp_solver)
             print("<----------------------------------------------->")
             print(f'solution for solver {cp_solver}:')
             print(result)
@@ -79,6 +82,7 @@ def solve_cp(config: 'dict', instances_path: 'str',
 
 def solve_sat(config: 'dict', instances_path: 'str',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
+    solver_to_use = config['solvers'][0]
     solver = Sat_model()
     print('loaded sat model')
 
@@ -95,7 +99,7 @@ def solve_sat(config: 'dict', instances_path: 'str',
         print("model built, now solving...")
         solution = solver.split_search(timeout=config['timeout'], processes=config['processes'])
         print(solution)
-        json_parser.save_results('SAT', instance.name, solution, instance.max_load_indeces)
+        json_parser.save_results('SAT', instance.name, solution, instance.max_load_indexes, solver_to_use)
 
 
 def solve_mip(config: 'dict', instances_path: 'str',
@@ -124,35 +128,34 @@ def solve_mip(config: 'dict', instances_path: 'str',
                 print("============================================================================")
                 print(f"solving instance {instance.name}")
 
-                sub_folders = '_None_'
-
                 if lib == 'mip':
                     solver = Mip_model(lib, instance, h=False, param=0, solver_name=solver_name)
-                    if config['create_sub_folders']:
-                        sub_folders = lib
+
                 elif lib == 'ortools':
                     solver = Or_model(lib, instance, solver_name=solver_name)
-                    if config['create_sub_folders']:
-                        sub_folders = lib + '_' + solver_name
+
                 elif lib == 'pulp':
                     solver = Pulp_model(lib, instance, timeout=config['timeout'])
-                    if config['create_sub_folders']:
-                        sub_folders = lib
+
                 else:
                     raise Exception(f"unknown lib {lib}")
+
+                sub_folders = lib + '_' + solver_name
+
                 print("model built, now solving...")
                 solver.solve(processes=config['processes'], timeout=config['timeout'])
                 result = solver.get_result()
 
-                print("result pre:", result)
-                json_parser.save_results('MIP', instance.name, result, instance.max_load_indeces, sub_folders)
+                json_parser.save_results('MIP', instance.name, result, instance.max_load_indexes, sub_folders)
                 print("<----------------------------------------------->")
                 print(f'solution for library {lib}:')
-                print("result post:", result)
+                print(result)
 
 
 def solve_smt(config: 'dict', instances_path: 'str',
               instance_to_solve: Union[list[str], str] = 'all_instances'):
+    solver_to_use = config['solvers'][0]
+
     if instance_to_solve == 'all_instances':
         instances = load_all_instances(instances_path)
     else:
@@ -171,14 +174,55 @@ def solve_smt(config: 'dict', instances_path: 'str',
             print("model built, now solving...")
             solver.solve(processes=config['processes'], timeout=config['timeout'])
             result = solver.get_result()
-            json_parser.save_results('SMT', instance.name, result, instance.max_load_indeces)
+            json_parser.save_results('SMT', instance.name, result, instance.max_load_indexes, solver_to_use)
             print("<----------------------------------------------->")
             print(f'solution:')
             print(result)
 
 
+def merge_json_files(input_dir, output_dir):
+    models = ['CP', 'MIP', 'SMT', 'SAT']
+    solvers = ['chuffed', 'gecode', 'or-tools', 'chuffed-no-sym', 'gecode-no-sym', 'or-tools-no-sym',
+               'ortools_CP-sat', 'ortools_CBC', 'mip_CBC', 'ortools_scip', 'pulp_CBC',
+               'z3']
+    instance_result_id = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '07', '08', '09',
+                          '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'
+                          ]
+
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+
+    for model in models:
+        out_model_dir_path = os.path.join(output_dir, model)
+
+        os.makedirs(out_model_dir_path)
+        for i in instance_result_id:
+            model_result_dict = {}
+            instance_name = 'inst' + i + '.json'
+            out_file_path = os.path.join(out_model_dir_path, instance_name)
+
+            for solver in solvers:
+                input_file_path = os.path.join(input_dir, model)
+                input_file_path = os.path.join(input_file_path, solver)
+                input_file_path = os.path.join(input_file_path, instance_name)
+
+                if os.path.exists(input_file_path):
+                    with open(input_file_path, "r") as f:
+                        data = json.load(f)
+                        tmp = data[model]
+                        model_result_dict[solver] = tmp
+
+            with open(out_file_path, "w") as f:
+                json.dump(model_result_dict, f)
+
+    print('Results ready')
+
+
 def main(config: 'dict'):
+    input_directory = ".cache/relust"
+    output_directory = "res"
     models_to_use = config['usage_mode']['models_to_use']
+
     instances_to_solve = config['usage_mode']['instances_to_solve']
     if 'cp' in models_to_use:
         print("============================================================================")
@@ -192,6 +236,8 @@ def main(config: 'dict'):
     if 'smt' in models_to_use:
         print("============================================================================")
         solve_smt(config['smt'], config['instances_path'], instances_to_solve)
+
+    merge_json_files(input_directory, output_directory)
 
 
 if __name__ == '__main__':
