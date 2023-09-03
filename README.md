@@ -13,29 +13,32 @@ To execute the project run the following command in terminal:
 python Mcp.py -c config.mcp
 ```
 
-This command executes the _Mcp.py_ file using the configurations set in the _config.mcp_ file.  
-
 To execute the `Mcp.py` file, use the configurations specified in the `config.mcp` file. The configuration file contains the following fields:
 
 1. **instances_path:** The directory path where instance files are stored.
 
 2. **usage_mode:** This field specifies the instances to run and the templates to use. It includes the following subfields:
 
-   - **instances_to_solve:** A list that should contain the names of the instances you wish to run, or you can use the string "_all_instances_" to run all instances.
+   - **instances_to_solve:** A list that should contain the names of the instances you wish to run(e.g \["inst00.dat"\]), or you can use the string "_all_instances_" to run all instances.
 
    - **models_to_use:** A list containing the names of the models you want to utilize. Available models include "mip," "cp," "sat," and "smt."
 
 3. **cp:** Contains configurations for running the Constraint Programming (CP) model. This section includes:
 
-   - **solvers:** A list of solver names you want to use.
+   - **solvers:** A list of solver names you want to use. Possible values are: every minizinc solver installed by default and or-tools. Adding the substring "-no-sym" to the solver name will execute the solver without the symetry breaking constraint(e.g "gecode-no-sym")
 
    - **timeout:** The time limit expressed in milliseconds.
 
    - **processes:** The number of threads to use when executing the CP model.
 
+    - **export_folder:** The directory where the built model for are to be exported.
+
 4. **sat:** Contains configurations for running the Boolean Satisfiability Problem (SAT) model. This section includes:
+   - **library:** A list of available library versions for the SAT model (z3 library only ).
 
    - **timeout:** The time limit expressed in milliseconds.
+
+   - **solver:** A list of solvers compatible with the SAT model (z3 default solver only).
 
    - **processes:** The number of threads for running the SAT model.
 
@@ -55,15 +58,16 @@ To execute the `Mcp.py` file, use the configurations specified in the `config.mc
 
     - **export_folder:** The directory where the built model for are to be exported.
 
-   - **create_sub_folders:** You can enable this flag to create subfolders when running instances with different models and solvers. This ensures organized results and prevents data overwriting.
-
 6. **smt:** Contains configurations for running the Satisfiability Modulo Theories (SMT) model.
-   - **library:** A list of available library versions for the MIP model(z3 library only).
+   - **library:** A list of available library versions for the SMT model(z3 library only).
+
+   - **solver:** A list of solvers compatible with the SMT model (z3 default solver only).
 
    - **timeout:** The time limit expressed in seconds.
    
    - **processes:** The number of threads for running the SMT model.
 
    - **export_folder:** The directory where the built model for  are to be exported.
+
 
 Feel free to customize the configurations in the `config.mcp` file to suit your specific needs and preferences.
