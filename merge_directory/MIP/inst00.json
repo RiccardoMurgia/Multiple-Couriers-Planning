@@ -1,1 +1,1 @@
-{"CP-sat": {"time": 0.05, "optimal": true, "obj": 12, "sol": [[3, 6, 5], [2, 4], [1, 7]]}, "mip": {"time": 0.085, "optimal": true, "obj": 12.0, "sol": [[4, 2, 5], [6, 3], [7, 1]]}, "ortools": {"time": 0.199, "optimal": true, "obj": 12.0, "sol": [[2, 4, 5], [3, 7], [1, 6]]}, "pulp": {"time": 0.015, "optimal": true, "obj": 12.0, "sol": [[6, 5, 3], [4, 2], [7, 1]]}, "scip": {"time": 0.244, "optimal": true, "obj": 12, "sol": [[6, 5, 3], [4, 2], [7, 1]]}}
+{}

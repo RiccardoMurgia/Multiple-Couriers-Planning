@@ -53,6 +53,7 @@ def solve_cp(config: 'dict', instances_path: 'str',
     print("============================================================================")
     print(f'loaded models {solver.model_name}')
 
+
     if instance_to_solve == 'all_instances':
         instances = load_all_instances(instances_path)
     else:
@@ -181,7 +182,9 @@ def solve_smt(config: 'dict', instances_path: 'str',
 
 def merge_json_files(input_dir, output_dir):
     models = ['CP', 'MIP', 'SMT', 'SAT']
-    solvers = ['chuffed', 'gecode', 'or-tools', 'ortools_CP-sat', 'mip_CBC', 'ortools_CBC', 'pulp_CBC', 'ortools_scip', 'z3']
+    solvers = ['chuffed', 'gecode', 'or-tools', 'chuffed-no-sym', 'gecode-no-sym', 'or-tools-no-sym',
+               'ortools_CP-sat', 'ortools_CBC', 'mip_CBC', 'ortools_scip', 'pulp_CBC',
+               'z3']
     instance_result_id = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '07', '08', '09',
                           '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'
                           ]
@@ -216,27 +219,23 @@ def merge_json_files(input_dir, output_dir):
 
 
 def main(config: 'dict'):
-
-
-    """
+    input_directory = ".cache/relust"
+    output_directory = "res"
     models_to_use = config['usage_mode']['models_to_use']
-        instances_to_solve = config['usage_mode']['instances_to_solve']
-        if 'cp' in models_to_use:
-            print("============================================================================")
-            solve_cp(config['cp'], config['instances_path'], instances_to_solve)
-        if 'sat' in models_to_use:
-            print("============================================================================")
-            solve_sat(config['sat'], config['instances_path'], instances_to_solve)
-        if 'mip' in models_to_use:
-            print("============================================================================")
-            solve_mip(config['mip'], config['instances_path'], instances_to_solve)
-        if 'smt' in models_to_use:
-            print("============================================================================")
-            solve_smt(config['smt'], config['instances_path'], instances_to_solve)
 
-    """
-    input_directory = "results"
-    output_directory = "merge_directory"
+    instances_to_solve = config['usage_mode']['instances_to_solve']
+    if 'cp' in models_to_use:
+        print("============================================================================")
+        solve_cp(config['cp'], config['instances_path'], instances_to_solve)
+    if 'sat' in models_to_use:
+        print("============================================================================")
+        solve_sat(config['sat'], config['instances_path'], instances_to_solve)
+    if 'mip' in models_to_use:
+        print("============================================================================")
+        solve_mip(config['mip'], config['instances_path'], instances_to_solve)
+    if 'smt' in models_to_use:
+        print("============================================================================")
+        solve_smt(config['smt'], config['instances_path'], instances_to_solve)
 
     merge_json_files(input_directory, output_directory)
 

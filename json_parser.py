@@ -4,7 +4,7 @@ import os
 
 class Json_parser:
     # Define the paths for each approach's result folder
-    def __init__(self, result_directory_path: 'str' = 'bamba'):         #fixme: deve salvare in .cache/tmp_res
+    def __init__(self, result_directory_path: 'str' = '.cache/results'):         #fixme: deve salvare in .cache/tmp_res
 
         self.result_directory_path = result_directory_path
         self.approach_folders = {

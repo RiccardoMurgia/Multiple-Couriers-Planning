@@ -2,10 +2,10 @@
 	"instances_path": "./instances/",
     "usage_mode": {
         "instances_to_solve": ["inst02.dat"],
-        "models_to_use": ["cp", "mip"]
+        "models_to_use": ["cp", "mip","sat","smt"]
     },
 	"cp": {
-		"solvers": ["gecode"],
+		"solvers": ["gecode","chuffed","gecode-no-sym","chuffed-no-sym" ],
 		"timeout": 300000,
 		"processes": 16
 	},
@@ -29,6 +29,5 @@
         "timeout": 300,
         "processes": 1,
         "export_folder": "export/smt"
-
 	}
 }
