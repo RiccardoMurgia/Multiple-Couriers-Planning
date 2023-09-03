@@ -9,7 +9,6 @@ class CpSolution:
         self.__satisfiable = True
         self.__found_optimal_solution = False
         self.__n_solutions = None
-        self.__init_time = 0
         self.__solve_time = 0
         self.__result = {}
 
@@ -20,7 +19,7 @@ class CpSolution:
         if len(solutions) != 0:
             self.parse_statistics(statistics)
             self.parse_solutions(solutions)
-        status = self.get_status(info['states'], len(solutions) > 0, int(self.__solve_time) >= 300000)
+        status = self.get_status(info['states'], len(solutions) > 0, int(self.__solve_time) >= 299000)
         if status == 'OPTIMAL_SOLUTION':
             self.__found_optimal_solution = True
         if status == 'UNKNOWN':
@@ -54,9 +53,12 @@ class CpSolution:
             self.__n_solutions = statistics[-1]['statistics']['nSolutions']
             self.__solve_time = statistics[-2]['statistics']['solveTime']
         except:
-            self.__n_solutions = statistics[-2]['statistics']['nSolutions']
-            self.__solve_time = statistics[-1]['statistics']['solveTime']
-            
+            try:
+                self.__n_solutions = statistics[-2]['statistics']['nSolutions']
+                self.__solve_time = statistics[-1]['statistics']['solveTime']
+            except:
+                self.__n_solutions = 0
+                self.__solve_time = 300
 
     def parse_solutions(self, all_solutions: 'dict') -> None:
         self.solutions = all_solutions
