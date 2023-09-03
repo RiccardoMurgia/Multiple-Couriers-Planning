@@ -71,7 +71,7 @@ def solve_cp(config: 'dict', instances_path: 'str',
             print("model built, now solving...")
             solution = solver.solve(config['timeout'], processes=config['processes'])
             result = solution.get_result()
-            json_parser.save_results('CP', instance.name, result, instance.max_load_indeces)
+            json_parser.save_results('CP', instance.name, result, instance.max_load_indeces, cp_solver)
             print("<----------------------------------------------->")
             print(f'solution for solver {cp_solver}:')
             print(result)
@@ -144,10 +144,11 @@ def solve_mip(config: 'dict', instances_path: 'str',
                 solver.solve(processes=config['processes'], timeout=config['timeout'])
                 result = solver.get_result()
 
+                print("result pre:", result)
                 json_parser.save_results('MIP', instance.name, result, instance.max_load_indeces, sub_folders)
                 print("<----------------------------------------------->")
                 print(f'solution for library {lib}:')
-                print(result)
+                print("result post:", result)
 
 
 def solve_smt(config: 'dict', instances_path: 'str',
