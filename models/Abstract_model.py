@@ -70,11 +70,11 @@ class Abstract_model:
         # Create a list to store the routes for each courier
         routes = [self._courier_routes[k] for k in range(self._instance.m)]
 
-        """
+        
         for i in range(len(routes)):
             for j in range(len(routes[i])):
                 routes[i][j] += 1
-        """
+        
         return routes
 
     def get_result(self) -> dict:
