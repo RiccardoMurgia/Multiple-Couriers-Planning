@@ -184,7 +184,7 @@ def merge_json_files(input_dir, output_dir):
     models = ['CP', 'MIP', 'SMT', 'SAT']
     solvers = ['chuffed', 'gecode', 'or-tools', 'chuffed-no-sym', 'gecode-no-sym', 'or-tools-no-sym',
                'ortools_CP-sat', 'ortools_CBC', 'mip_CBC', 'ortools_scip', 'pulp_CBC',
-               'z3']
+               'z3_smt', 'z3_sat']
     instance_result_id = ['00', '01', '02', '03', '04', '05', '06', '07', '08', '07', '08', '09',
                           '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'
                           ]
