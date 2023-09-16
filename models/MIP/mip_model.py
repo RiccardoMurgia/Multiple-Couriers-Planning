@@ -73,7 +73,7 @@ class Mip_model(Abstract_model):
 
         return routes
 
-    def solve(self, processes=1, timeout=300) -> None:
+    def solve(self, processes:'int' = 1, timeout:'int' = 300) -> None:
 
         # Objective
         obj = self.__model.add_var(var_type=mip.INTEGER, name='obj')
